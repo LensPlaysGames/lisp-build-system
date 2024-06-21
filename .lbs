@@ -1,0 +1,10 @@
+;; Yeah, this is a lisp-build-system build file for lisp-build-system
+;; itself... bootstrappy!
+
+(library libparser '(cpp))
+(sources libparser lib/parser/parser.cpp)
+
+(executable lbs '(cpp))
+(include-directories lbs '(directory inc))
+(sources lbs src/main.cpp)
+(dependency lbs libparser)

@@ -19,7 +19,7 @@ This is just an idea for now: CMake but a locally-built LISP so you can see and 
 ;; Nerd talk: Registers a requisite of type "builtin_copy" within the
 ;; target "foo".
 (copy foo '(directory "./foo") '(directory "./bar"))
-;; Copy contents of directory at ./foo into ./bar, resulting in ./bar/foo/
+;; Copy contents of directory at ./foo into ./bar
 (copy foo '(directory-contents "./foo") '(directory "./bar"))
 ;; Build dependency libfoo
 (dependency foo libfoo)

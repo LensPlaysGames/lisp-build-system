@@ -35,6 +35,8 @@ This is just an idea for now: CMake but a locally-built LISP so you can see and 
 (dependency foo my-target)
 #+end_src lisp
 
+It would be cool to have a =(watches)= sort of thing that is similar to =(sources)= in that it takes a list of files and if any of those files (maybe eventually directories) change the target gets revalidated (re-built).
+
 ** PAIN POINTS
 
 - Which compiler to use, flags to give it to produce executable vs library, change output filename, etc.

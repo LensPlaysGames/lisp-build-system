@@ -7,13 +7,13 @@ This is just an idea for now: CMake but a locally-built LISP so you can see and 
 ;; NOTE: Since we promote a locally-built (probably bootstrapped) lbs
 ;; binary, the path to the executable may be ./lisp-build-system/bld/lbs
 
-(library libfoo (c))
+(library libfoo)
 (sources libfoo libs/foo/foo.c)
 
 ;; A target (executable, library, etc) may have an ordered list of
 ;; requisites (like builtins, shell commands, /dependencies/, and more)
 ;; associated with it.
-(executable foo (c))
+(executable foo)
 (sources foo src/main.c)
 ;; Copy directory at ./foo into ./bar, resulting in ./bar/foo/
 ;; Nerd talk: Registers a requisite of type "builtin_copy" within the

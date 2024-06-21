@@ -1,0 +1,40 @@
+* LISP Build System
+
+This is just an idea for now: CMake but a locally-built LISP so you can see and edit the code that makes up the primitives, macros, etc.
+
+#+begin_src lisp
+;; Use like: lbs foo
+;; NOTE: Since we promote a locally-built (probably bootstrapped) lbs
+;; binary, the path to the executable may be ./lisp-build-system/bld/lbs
+
+(library libfoo (c))
+(sources libfoo libs/foo/foo.c)
+
+;; A target (executable, library, etc) may have an ordered list of
+;; requisites (like builtins, shell commands, /dependencies/, and more)
+;; associated with it.
+(executable foo (c))
+(sources foo src/main.c)
+;; Copy directory at ./foo into ./bar, resulting in ./bar/foo/
+;; Nerd talk: Registers a requisite of type "builtin_copy" within the
+;; target "foo".
+(copy foo '(directory "./foo") '(directory "./bar"))
+;; Copy contents of directory at ./foo into ./bar, resulting in ./bar/foo/
+(copy foo '(directory-contents "./foo") '(directory "./bar"))
+;; Build dependency libfoo
+(dependency foo libfoo)
+
+;; NOTE: The order matters; the above will do the directory copying, build
+;; the dependency libfoo, and only then attempt to build the target itself
+;; (the foo executable).
+
+;; Generic target to get things done, group tasks, whatever you'd like.
+(target my-target)
+(command my-target "echo hello from LISP-land (:^)")
+(command my-target '(echo idn't this neat?))
+(dependency foo my-target)
+#+end_src lisp
+
+** PAIN POINTS
+
+- Which compiler to use, flags to give it to produce executable vs library, change output filename, etc.

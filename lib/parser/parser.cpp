@@ -129,11 +129,8 @@ struct Target {
     } kind;
 
     const std::string name;
-    // Source code
     std::vector<std::string> sources;
-    // For -I
     std::vector<std::string> include_directories;
-    // For -L
     std::vector<std::string> linked_libraries;
 
     struct Requisite {

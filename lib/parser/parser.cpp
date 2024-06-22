@@ -282,7 +282,26 @@ struct BuildScenario {
                     break;
                 }
             }
+
+            // Include directories.
+            for (const auto& include_dir : target->include_directories) {
+                build_executable_command += " -I";
+                build_executable_command += include_dir;
+            }
+
+            // If there are libraries to link with, look for them at least in the
+            // current working directory.
+            if (target->linked_libraries.size())
+                build_executable_command += " -L.";
+
+            // Linked libraries.
+            for (const auto& library_name : target->linked_libraries) {
+                build_executable_command += " -l";
+                build_executable_command += library_name;
+            }
+
             printf("%s%s\n", indent.data(), build_executable_command.data());
+
         } else if (target->kind == Target::Kind::LIBRARY) {
             std::string build_library_command{};
             for (auto i = 0; i < compiler.library_template.size(); ++i) {
@@ -322,6 +341,20 @@ struct BuildScenario {
                     break;
                 }
             }
+
+            for (const auto& include_dir : target->include_directories) {
+                build_library_command += " -I";
+                build_library_command += include_dir;
+            }
+
+            if (target->linked_libraries.size())
+                build_library_command += " -L.";
+
+            for (const auto& library_name : target->linked_libraries) {
+                build_library_command += " -l";
+                build_library_command += library_name;
+            }
+
             printf("%s%s\n", indent.data(), build_library_command.data());
         } else {
             printf("ERROR: Unhandled target kind %d in BuildScenario::Commands(), sorry\n", target->kind);
@@ -500,11 +533,16 @@ void parse(std::string_view source) {
                     return;
                 }
                 // Ensure that identifier refers to an existing target.
-                auto target = build_scenario.target(token.elements[2].identifier);
-                if (target == build_scenario.targets.end()) {
+                auto dep_target = build_scenario.target(token.elements[2].identifier);
+                if (dep_target == build_scenario.targets.end()) {
                     printf("ERROR: dependency on target %s but that target doesn't exist\n", token.elements[2].identifier.data());
                     return;
                 }
+
+                // If we are depending on a library target, link with it.
+                if (dep_target->kind == Target::Kind::LIBRARY)
+                    target->linked_libraries.push_back(dep_target->name);
+
                 requisite.text = token.elements[2].identifier;
             }
 

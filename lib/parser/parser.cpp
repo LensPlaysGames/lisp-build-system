@@ -370,8 +370,8 @@ void parse(std::string_view source) {
     while (source.size()) {
         auto token = lex(source);
 
-        Token::Print(token);
-        printf("\n");
+        //Token::Print(token);
+        //printf("\n");
 
         if (token_is_eof(token))
             break;
@@ -407,9 +407,14 @@ void parse(std::string_view source) {
                 }
             }
 
-            Target::Kind t_kind = Target::Kind::GENERIC;
-            if (identifier == "executable") t_kind = Target::Kind::EXECUTABLE;
+            Target::Kind t_kind{};
+            if (identifier == "target") t_kind = Target::Kind::GENERIC;
+            else if (identifier == "executable") t_kind = Target::Kind::EXECUTABLE;
             else if (identifier == "library") t_kind = Target::Kind::LIBRARY;
+            else {
+                printf("ERROR: Unhandled target creation identifier %s\n", identifier.data());
+                return;
+            }
             Target t{t_kind, name};
 
             // Register target in BuildScenario.
@@ -551,7 +556,7 @@ void parse(std::string_view source) {
             continue;
         }
     }
-    BuildScenario::Print(build_scenario);
+    //BuildScenario::Print(build_scenario);
     BuildScenario::Commands(build_scenario, "lbs", {
         "c++ -c %i -o %o",
         "c++ %i -o %o"

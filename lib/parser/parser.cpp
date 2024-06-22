@@ -78,7 +78,7 @@ auto lex(std::string_view& source) -> Token {
     // Identifier
     if (isalpha(c)) {
         out.kind = Token::Kind::IDENTIFIER;
-        // TODO: lex identifier
+        // lex identifier
         out.identifier = std::string{c};
         // Until character is whitespace or delimiter...
         while (not isspace(source.data()[0]) and not isdelimiter(source.data()[0])) {
@@ -330,8 +330,9 @@ struct BuildScenario {
 };
 
 void parse(std::string_view source) {
-    // TODO: The idea is this will parse the source into a list of actions to
-    // perform (i.e. shell commands to run for targets and that sort of thing).
+    // The idea is this will parse the source into a list of actions to
+    // perform (i.e. shell commands to run for targets and that sort of
+    // thing).
     BuildScenario build_scenario{};
     while (source.size()) {
         auto token = lex(source);
@@ -458,7 +459,11 @@ void parse(std::string_view source) {
             auto requisite = Target::Requisite{};
             if (identifier == "command") {
                 requisite.kind = Target::Requisite::Kind::COMMAND;
-                // TODO: Ensure third element is an identifier.
+                // Ensure third element is an identifier.
+                if (not token_is_identifier(token.elements[2])) {
+                    printf("ERROR: command (after target name) must be an identifier\n");
+                    return;
+                }
                 requisite.text = token.elements[2].identifier;
                 // Begin iterating all elements past target name and command.
                 for (auto it = token.elements.begin() + 3;
@@ -473,15 +478,33 @@ void parse(std::string_view source) {
             }
             else if (identifier == "copy") {
                 requisite.kind = Target::Requisite::Kind::COPY;
-                // TODO: Ensure third element is an identifier.
+                // TODO: Handle (directory ...), (directory-contents ...)
+                // Ensure third element is an identifier.
+                if (not token_is_identifier(token.elements[2])) {
+                    printf("ERROR: copy source argument must be an identifier for now, sorry\n");
+                    return;
+                }
                 requisite.text = token.elements[2].identifier;
-                // TODO: Ensure fourth element is an identifier.
+                // Ensure fourth element is an identifier.
+                if (not token_is_identifier(token.elements[3])) {
+                    printf("ERROR: copy destination argument must be an identifier for now, sorry\n");
+                    return;
+                }
                 requisite.text = token.elements[3].identifier;
             }
             else if (identifier == "dependency") {
                 requisite.kind = Target::Requisite::Kind::DEPENDENCY;
-                // TODO: Ensure third element is an identifier.
-                // TODO: Ensure that identifier refers to an existing target.
+                // Ensure third element is an identifier.
+                if (not token_is_identifier(token.elements[2])) {
+                    printf("ERROR: dependency target name must be an identifier\n");
+                    return;
+                }
+                // Ensure that identifier refers to an existing target.
+                auto target = build_scenario.target(token.elements[2].identifier);
+                if (target == build_scenario.targets.end()) {
+                    printf("ERROR: dependency on target %s but that target doesn't exist\n", token.elements[2].identifier.data());
+                    return;
+                }
                 requisite.text = token.elements[2].identifier;
             }
 

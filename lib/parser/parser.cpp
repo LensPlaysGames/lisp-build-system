@@ -86,8 +86,8 @@ auto lex(std::string_view& source) -> Token {
             out.elements.push_back(lex(source));
         }
         // Eat list closing character.
-        return out;
         source.remove_prefix(1);
+        return out;
     }
     // Number
     if (isdigit(c)) {
@@ -98,13 +98,54 @@ auto lex(std::string_view& source) -> Token {
     return out;
 }
 
+struct Target {
+    const std::string name;
+    // Source code
+    std::vector<std::string> sources;
+    // For -I
+    std::vector<std::string> include_directories;
+    // For -L
+    std::vector<std::string> linked_libraries;
+
+    static void Print(const Target &target) {
+        printf("TARGET %s\n", target.name.data());
+        if (target.sources.size()) {
+            printf("Sources:\n");
+            for (const auto source : target.sources)
+                printf("- %s\n", source.data());
+        }
+        if (target.include_directories.size()) {
+            printf("Include Directories:\n");
+            for (const auto include_dir : target.include_directories)
+                printf("- %s\n", include_dir.data());
+        }
+        if (target.linked_libraries.size()) {
+            printf("Linked Libraries:\n");
+            for (const auto library : target.linked_libraries)
+                printf("- %s\n", library.data());
+        }
+    }
+};
+
+struct BuildScenario {
+    std::vector<Target> targets;
+
+    static void Print(const BuildScenario& build_scenario) {
+        for (const auto &target : build_scenario.targets)
+            Target::Print(target);
+    }
+};
+
 void parse(std::string_view source) {
     // TODO: The idea is this will parse the source into a list of actions to
     // perform (i.e. shell commands to run for targets and that sort of thing).
+    BuildScenario build_scenario{};
     while (source.size()) {
         auto token = lex(source);
+
         Token::Print(token);
         printf("\n");
+
         if (token.kind == Token::Kind::EOF_)
             break;
         if (token.kind != Token::Kind::LIST) {
@@ -123,11 +164,22 @@ void parse(std::string_view source) {
         // TARGET CREATION
         // "executable", "library", "target"
         if (identifier == "executable" or identifier == "library" or identifier == "target") {
-            // TODO: Ensure second element is an identifier that doesn't already refer
-            // to an existing target.
+            // Ensure second element is an identifier.
+            if (token.elements.size() < 2 or
+                token.elements[1].kind != Token::Kind::IDENTIFIER) {
+                printf("ERROR: Second element must be an identifier");
+                return;
+            }
+            std::string name = token.elements[1].identifier;
 
-            printf("TODO: Create target\n");
-            return;
+            // TODO: Ensure name doesn't already refer to an existing target.
+
+            Target t{name};
+
+            // Register target in BuildScenario.
+            build_scenario.targets.push_back(t);
+
+            continue;
         }
 
         // TARGET RELATED
@@ -147,4 +199,5 @@ void parse(std::string_view source) {
             return;
         }
     }
+    BuildScenario::Print(build_scenario);
 }

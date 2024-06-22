@@ -53,15 +53,26 @@ constexpr bool token_is_identifier(const Token &token) {
 
 #define LEX_LIST_BEGIN '('
 #define LEX_LIST_END   ')'
+#define LEX_LINE_COMMENT_BEGIN ';'
 
 bool isdelimiter(const char c) {
     return c == LEX_LIST_BEGIN
-           or c == LEX_LIST_END;
+           or c == LEX_LIST_END
+           or c == LEX_LINE_COMMENT_BEGIN;
 }
 
 auto lex(std::string_view& source) -> Token {
     static const Token eof{Token::Kind::EOF_};
     Token out{};
+
+    // Eat comments.
+    while (source.size() and source.data()[0] == LEX_LINE_COMMENT_BEGIN) {
+        // Eat everything up until newline.
+        while (source.size() and source.data()[0] != '\n')
+            source.remove_prefix(1);
+        // Eat the newline.
+        source.remove_prefix(1);
+    }
 
     // Eat whitespace.
     while (source.size() and isspace(source.data()[0]))

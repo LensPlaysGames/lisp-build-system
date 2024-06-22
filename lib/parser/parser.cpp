@@ -228,8 +228,7 @@ struct BuildScenario {
     }
 
     static auto Commands(const BuildScenario &build_scenario,
-                         std::string target_name, Compiler compiler,
-                         std::string indent = "") -> std::string {
+                         std::string target_name, Compiler compiler) -> std::string {
         auto target = build_scenario.target(target_name);
         if (target == build_scenario.targets.end()) {
             printf("ERROR: Target %s does not exist in build scenario", target_name.data());
@@ -238,18 +237,24 @@ struct BuildScenario {
         std::vector<std::string> build_commands{};
         for (const auto &requisite : target->requisites) {
             switch (requisite.kind) {
-            case Target::Requisite::COMMAND:
-                printf("%s%s", indent.data(), requisite.text.data());
-                for (const auto &arg : requisite.arguments)
-                    printf(" %s", arg.data());
-                printf("\n");
-                break;
-            case Target::Requisite::COPY:
-                printf("%scp %s %s\n", indent.data(), requisite.text.data(), requisite.destination.data());
-                break;
+            case Target::Requisite::COMMAND: {
+                std::string command{requisite.text};
+                for (const auto &arg : requisite.arguments){
+                    command += ' ';
+                    command += arg;
+                }
+                build_commands.push_back(command);
+            } break;
+            case Target::Requisite::COPY: {
+                std::string copy_command{"cp "};
+                copy_command += requisite.text;
+                copy_command += ' ';
+                copy_command += requisite.destination;
+                build_commands.push_back(copy_command);
+            } break;
             case Target::Requisite::DEPENDENCY:
                 // FIXME: what compiler to use for dependency.
-                build_commands.push_back(BuildScenario::Commands(build_scenario, requisite.text, compiler, indent + "    "));
+                build_commands.push_back(BuildScenario::Commands(build_scenario, requisite.text, compiler));
                 break;
             }
         }

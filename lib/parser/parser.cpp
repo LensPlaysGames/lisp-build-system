@@ -216,16 +216,15 @@ struct BuildScenario {
             Target::Print(target);
     }
 
-    static void Commands(const BuildScenario &build_scenario,
+    static auto Commands(const BuildScenario &build_scenario,
                          std::string target_name, Compiler compiler,
-                         std::string indent = "") {
-        printf("%sCOMMANDS FOR TARGET %s:\n", indent.data(), target_name.data());
-
+                         std::string indent = "") -> std::string {
         auto target = build_scenario.target(target_name);
         if (target == build_scenario.targets.end()) {
             printf("ERROR: Target %s does not exist in build scenario", target_name.data());
-            return;
+            return {};
         }
+        std::vector<std::string> build_commands{};
         for (const auto &requisite : target->requisites) {
             switch (requisite.kind) {
             case Target::Requisite::COMMAND:
@@ -239,7 +238,7 @@ struct BuildScenario {
                 break;
             case Target::Requisite::DEPENDENCY:
                 // FIXME: what compiler to use for dependency.
-                BuildScenario::Commands(build_scenario, requisite.text, compiler, indent + "    ");
+                build_commands.push_back(BuildScenario::Commands(build_scenario, requisite.text, compiler, indent + "    "));
                 break;
             }
         }
@@ -296,12 +295,11 @@ struct BuildScenario {
 
             // Linked libraries.
             for (const auto& library_name : target->linked_libraries) {
-                build_executable_command += " -l";
+                build_executable_command += " -l:";
                 build_executable_command += library_name;
             }
 
-            printf("%s%s\n", indent.data(), build_executable_command.data());
-
+            build_commands.push_back(build_executable_command);
         } else if (target->kind == Target::Kind::LIBRARY) {
             std::string build_library_command{};
             for (auto i = 0; i < compiler.library_template.size(); ++i) {
@@ -355,10 +353,18 @@ struct BuildScenario {
                 build_library_command += library_name;
             }
 
-            printf("%s%s\n", indent.data(), build_library_command.data());
+            build_commands.push_back(build_library_command);
         } else {
             printf("ERROR: Unhandled target kind %d in BuildScenario::Commands(), sorry\n", target->kind);
         }
+        std::string out_command{};
+        bool notfirst{false};
+        for (const auto& command : build_commands) {
+            if (notfirst) out_command += " && ";
+            out_command += command;
+            notfirst = true;
+        }
+        return out_command;
     }
 };
 
@@ -557,10 +563,11 @@ void parse(std::string_view source) {
         }
     }
     //BuildScenario::Print(build_scenario);
-    BuildScenario::Commands(build_scenario, "lbs", {
+    auto build_command = BuildScenario::Commands(build_scenario, "lbs", {
         "c++ -c %i -o %o",
         "c++ %i -o %o"
     });
+    printf("%s\n", build_command.data());
 }
 
 // Compiler:

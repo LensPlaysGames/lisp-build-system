@@ -1,42 +1,20 @@
 * LISP Build System
 
-This is just an idea for now: CMake but a locally-built LISP so you can see and edit the code that makes up the primitives, macros, etc.
+A lil LISPy build system.
 
-#+begin_src lisp
-;; Use like: lbs foo
-;; NOTE: Since we promote a locally-built (probably bootstrapped) lbs
-;; binary, the path to the executable may be ./lisp-build-system/bld/lbs
+#+begin_src emacs-lisp :tangle .lbs
+;; This file describes the build scenario of the build system itself.
+;; Meta, and not the bad kind!
 
-(library libfoo)
-(sources libfoo libs/foo/foo.c)
+(library libparser)
+(sources libparser lib/parser/parser.cpp)
 
-;; A target (executable, library, etc) may have an ordered list of
-;; requisites (like builtins, shell commands, /dependencies/, and more)
-;; associated with it.
-(executable foo)
-(sources foo src/main.c)
-;; Copy directory at ./foo into ./bar, resulting in ./bar/foo/
-;; Nerd talk: Registers a requisite of type "builtin_copy" within the
-;; target "foo".
-(copy foo '(directory "./foo") '(directory "./bar"))
-;; Copy contents of directory at ./foo into ./bar
-(copy foo '(directory-contents "./foo") '(directory "./bar"))
-;; Build dependency libfoo
-(dependency foo libfoo)
-
-;; NOTE: The order matters; the above will do the directory copying, build
-;; the dependency libfoo, and only then attempt to build the target itself
-;; (the foo executable).
-
-;; Generic target to get things done, group tasks, whatever you'd like.
-(target my-target)
-(command my-target "echo hello from LISP-land (:^)")
-(command my-target '(echo idn't this neat?))
-(dependency foo my-target)
+(executable lbs)
+(include-directories lbs inc)
+(sources lbs src/main.cpp)
+(dependency lbs libparser)
 #+end_src lisp
 
-It would be cool to have a =(watches)= sort of thing that is similar to =(sources)= in that it takes a list of files and if any of those files (maybe eventually directories) change the target gets revalidated (re-built).
+To use the build system, first of all build it. This can be done by bootstrapping with a pre-built binary or by using CMake. Either way, once you have an =lbs= binary available, just run it from this directory (or any directory with a =.lbs= build scenario description file). Most commonly this is something like =./bld/lbs=.
 
-** PAIN POINTS
-
-- Which compiler to use, flags to give it to produce executable vs library, change output filename, etc.
+What you'll see is a command (or commands) that should look familiar to you if you've compiled a C or C++ project before. Iff the commands look like something you are okay with running on your system, you can use =eval `./bld/lbs`= to run it (or them). Note the backticks which utilize a sub-shell to replace the first argument with the output of running =lbs=.

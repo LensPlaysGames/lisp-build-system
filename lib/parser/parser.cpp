@@ -4,7 +4,9 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <parser/parser.h>
 
+// TODO: string syntax for identifiers with delimiters whitespace in them.
 struct Token {
     enum Kind {
         UNKNOWN,
@@ -120,271 +122,7 @@ auto lex(std::string_view& source) -> Token {
     return out;
 }
 
-struct Target {
-    enum Kind {
-      UNKNOWN,
-      GENERIC,
-      LIBRARY,
-      EXECUTABLE,
-    } kind;
-
-    const std::string name;
-    std::vector<std::string> sources;
-    std::vector<std::string> include_directories;
-    std::vector<std::string> linked_libraries;
-
-    struct Requisite {
-        enum Kind {
-          COMMAND,
-          COPY,
-          DEPENDENCY,
-        } kind;
-
-        std::string text;
-        std::vector<std::string> arguments;
-        std::string destination;
-
-        static void Print(const Requisite& requisite) {
-            switch (requisite.kind) {
-            case DEPENDENCY:
-                printf("build dependency %s", requisite.text.data());
-                break;
-            case COMMAND:
-                printf("%s", requisite.text.data());
-                for (const auto &arg : requisite.arguments)
-                    printf(" %s", arg.data());
-                break;
-            case COPY:
-                printf("copy %s %s", requisite.text.data(), requisite.destination.data());
-                break;
-            }
-        }
-    };
-
-    std::vector<Requisite> requisites;
-
-    static void Print(const Target &target) {
-        switch (target.kind) {
-        case UNKNOWN: printf("UNKNOWN-KIND TARGET "); break;
-        case GENERIC: printf("TARGET "); break;
-        case LIBRARY: printf("LIBRARY "); break;
-        case EXECUTABLE: printf("EXECUTABLE "); break;
-            break;
-        }
-        printf("%s\n", target.name.data());
-        if (target.sources.size()) {
-            printf("Sources:\n");
-            for (const auto source : target.sources)
-                printf("- %s\n", source.data());
-        }
-        if (target.include_directories.size()) {
-            printf("Include Directories:\n");
-            for (const auto include_dir : target.include_directories)
-                printf("- %s\n", include_dir.data());
-        }
-        if (target.linked_libraries.size()) {
-            printf("Linked Libraries:\n");
-            for (const auto library : target.linked_libraries)
-                printf("- %s\n", library.data());
-        }
-        if (target.requisites.size()) {
-            printf("Requisites:\n");
-            for (const auto requisite : target.requisites) {
-                printf("- ");
-                Requisite::Print(requisite);
-                printf("\n");
-            }
-        }
-    }
-};
-
-// Compiler:
-// - Object Compilation Template with %o (output filename) and %i
-//   (input source filename), probably eventually flags, defines, etc.
-//   "cc -c %i -o %o"
-// - Executable Compilation Template with %o (output filename),
-//   %i (input object(s)).
-//   "cc %i -o %o"
-// Using a BuildScenario and these templates, we should be able to produce
-// build commands.
-struct Compiler {
-    const std::string library_template{};
-    const std::string executable_template{};
-};
-
-struct BuildScenario {
-    std::vector<Target> targets;
-
-    // Check return value against targets.end()
-    auto target(const std::string_view name) {
-        return std::find_if(targets.begin(), targets.end(), [&] (const Target& t) {
-            return t.name == name;
-        });
-    };
-
-    auto target(const std::string_view name) const {
-        return std::find_if(targets.begin(), targets.end(), [&] (const Target& t) {
-            return t.name == name;
-        });
-    };
-
-    static void Print(const BuildScenario& build_scenario) {
-        for (const auto &target : build_scenario.targets)
-            Target::Print(target);
-    }
-
-    static auto Commands(const BuildScenario &build_scenario,
-                         std::string target_name, Compiler compiler) -> std::string {
-        auto target = build_scenario.target(target_name);
-        if (target == build_scenario.targets.end()) {
-            printf("ERROR: Target %s does not exist in build scenario", target_name.data());
-            return {};
-        }
-        std::vector<std::string> build_commands{};
-        for (const auto &requisite : target->requisites) {
-            switch (requisite.kind) {
-            case Target::Requisite::COMMAND: {
-                std::string command{requisite.text};
-                for (const auto &arg : requisite.arguments){
-                    command += ' ';
-                    command += arg;
-                }
-                build_commands.push_back(command);
-            } break;
-            case Target::Requisite::COPY: {
-                // TODO: Handle (directory), (directory-contents)
-                // TODO: Record artifact(s)
-                std::string copy_command{"cp "};
-                copy_command += requisite.text;
-                copy_command += ' ';
-                copy_command += requisite.destination;
-                build_commands.push_back(copy_command);
-            } break;
-            case Target::Requisite::DEPENDENCY:
-                // FIXME: what compiler to use for dependency.
-                build_commands.push_back(BuildScenario::Commands(build_scenario, requisite.text, compiler));
-                break;
-            }
-        }
-        if (target->kind == Target::Kind::EXECUTABLE) {
-            std::string build_executable_command{};
-            for (auto i = 0; i < compiler.executable_template.size(); ++i) {
-                const char c = compiler.executable_template.data()[i];
-                switch (c) {
-
-                case '%': {
-                    if (i + 1 >= compiler.executable_template.size()) {
-                        build_executable_command += c;
-                        break;
-                    }
-                    const char nextc = compiler.executable_template.data()[++i];
-                    if (nextc == 'i') {
-                        bool notfirst{false};
-                        for (const auto& source : target->sources) {
-                            if (notfirst) build_executable_command += ' ';
-                            build_executable_command += source;
-                            notfirst = true;
-                        }
-                    } else if (nextc == 'o') {
-                        // TODO: Record artifact(s)
-                        build_executable_command += target_name;
-#ifdef _WIN32
-                        build_executable_command += ".exe";
-#endif
-                    } else {
-                        printf("ERROR: Unrecognized format specifier in "
-                               "compiler template string\n"
-                               "    format specifier: %c\n"
-                               "    template string: %s\n",
-                               nextc, compiler.executable_template.data());
-                        exit(1);
-                    }
-                } break;
-
-                default:
-                    build_executable_command += c;
-                    break;
-                }
-            }
-
-            // Include directories.
-            for (const auto& include_dir : target->include_directories) {
-                build_executable_command += " -I";
-                build_executable_command += include_dir;
-            }
-
-            // Linked libraries.
-            for (const auto& library_name : target->linked_libraries) {
-                build_executable_command += " ";
-                build_executable_command += library_name;
-            }
-
-            build_commands.push_back(build_executable_command);
-        } else if (target->kind == Target::Kind::LIBRARY) {
-            std::string build_library_command{};
-            for (auto i = 0; i < compiler.library_template.size(); ++i) {
-                const char c = compiler.library_template.data()[i];
-                switch (c) {
-
-                case '%': {
-                    if (i + 1 >= compiler.library_template.size()) {
-                        build_library_command += c;
-                        break;
-                    }
-                    const char nextc = compiler.library_template.data()[++i];
-                    if (nextc == 'i') {
-                        bool notfirst{false};
-                        for (const auto& source : target->sources) {
-                            if (notfirst) build_library_command += ' ';
-                            build_library_command += source;
-                            notfirst = true;
-                        }
-                    } else if (nextc == 'o') {
-                        // TODO: Record artifact(s)
-                        build_library_command += target_name;
-                    } else {
-                        printf("ERROR: Unrecognized format specifier in "
-                               "compiler template string\n"
-                               "    format specifier: %c\n"
-                               "    template string: %s\n",
-                               nextc,
-                               compiler.library_template.data());
-                    }
-                } break;
-
-                default:
-                    build_library_command += c;
-                    break;
-                }
-            }
-
-            for (const auto& include_dir : target->include_directories) {
-                build_library_command += " -I";
-                build_library_command += include_dir;
-            }
-
-            for (const auto& library_name : target->linked_libraries) {
-                build_library_command += " ";
-                build_library_command += library_name;
-            }
-
-            build_commands.push_back(build_library_command);
-        } else {
-            printf("ERROR: Unhandled target kind %d in BuildScenario::Commands(), sorry\n", target->kind);
-        }
-
-        std::string out_command{};
-        bool notfirst{false};
-        for (const auto& command : build_commands) {
-            if (notfirst) out_command += " && ";
-            out_command += command;
-            notfirst = true;
-        }
-        return out_command;
-    }
-};
-
-void parse(std::string_view source) {
+auto parse(std::string_view source) -> BuildScenario {
     // The idea is this will parse the source into a list of actions to
     // perform (i.e. shell commands to run for targets and that sort of
     // thing).
@@ -399,14 +137,14 @@ void parse(std::string_view source) {
             break;
         if (not token_is_list(token)) {
             printf("ERROR: Unexpected token at top level; this is LISP, so use lists!\n");
-            return;
+            exit(1);
         }
 
         // First element of list should be an identifier that will help us to
         // parse this meaningfully into the build scenario.
         if (token.elements.empty() or not token_is_identifier(token.elements[0])) {
             printf("ERROR: Expected identifier in operator position of top level list!\n");
-            return;
+            exit(1);
         }
         const auto identifier = token.elements[0].identifier;
 
@@ -417,7 +155,7 @@ void parse(std::string_view source) {
             if (token.elements.size() < 2 or
                 not token_is_identifier(token.elements[1])) {
                 printf("ERROR: Second element must be an identifier");
-                return;
+                exit(1);
             }
             std::string name = token.elements[1].identifier;
 
@@ -425,7 +163,7 @@ void parse(std::string_view source) {
             for (const auto &target : build_scenario.targets) {
                 if (name == target.name) {
                     printf("ERROR: Targets must not share a name (hint: %s)\n", name.data());
-                    return;
+                    exit(1);
                 }
             }
 
@@ -435,7 +173,7 @@ void parse(std::string_view source) {
             else if (identifier == "library") t_kind = Target::Kind::LIBRARY;
             else {
                 printf("ERROR: Unhandled target creation identifier %s\n", identifier.data());
-                return;
+                exit(1);
             }
             Target t{t_kind, name};
 
@@ -453,7 +191,7 @@ void parse(std::string_view source) {
             if (token.elements.size() < 2 or
                 not token_is_identifier(token.elements[1])) {
                 printf("ERROR: Second element must be an identifier");
-                return;
+                exit(1);
             }
             std::string name = token.elements[1].identifier;
             // Ensure that identifier that refers to an existing target, and get a
@@ -481,7 +219,7 @@ void parse(std::string_view source) {
                     // TODO: Handle (directory-contents)
                     if (not token_is_identifier(*it)) {
                         printf("ERROR: Sources must be an identifier (just a file path)\n");
-                        return;
+                        exit(1);
                     }
                     target->sources.push_back(it->identifier);
                 }
@@ -495,7 +233,7 @@ void parse(std::string_view source) {
                     // TODO: Handle (directory-contents)
                     if (not token_is_identifier(*it)) {
                         printf("ERROR: Include directories must be an identifier (just a file path)\n");
-                        return;
+                        exit(1);
                     }
                     target->include_directories.push_back(it->identifier);
                 }
@@ -511,7 +249,7 @@ void parse(std::string_view source) {
             if (token.elements.size() < 2 or
                 not token_is_identifier(token.elements[1])) {
                 printf("ERROR: Second element must be an identifier");
-                return;
+                exit(1);
             }
             std::string name = token.elements[1].identifier;
             // Ensure that identifier that refers to an existing target, and get a
@@ -521,7 +259,7 @@ void parse(std::string_view source) {
                 printf("ERROR: Second element must refer to an existing target "
                        "(which \"%s\" does not)\n",
                        name.data());
-                return;
+                exit(1);
             }
 
             auto requisite = Target::Requisite{};
@@ -530,7 +268,7 @@ void parse(std::string_view source) {
                 // Ensure third element is an identifier.
                 if (not token_is_identifier(token.elements[2])) {
                     printf("ERROR: command (after target name) must be an identifier\n");
-                    return;
+                    exit(1);
                 }
                 requisite.text = token.elements[2].identifier;
                 // Begin iterating all elements past target name and command.
@@ -539,7 +277,7 @@ void parse(std::string_view source) {
                     // TODO: Handle (directory-contents)
                     if (not token_is_identifier(*it)) {
                         printf("ERROR: command arguments must be an identifier\n");
-                        return;
+                        exit(1);
                     }
                     requisite.arguments.push_back(it->identifier);
                 }
@@ -550,13 +288,13 @@ void parse(std::string_view source) {
                 // Ensure third element is an identifier.
                 if (not token_is_identifier(token.elements[2])) {
                     printf("ERROR: copy source argument must be an identifier for now, sorry\n");
-                    return;
+                    exit(1);
                 }
                 requisite.text = token.elements[2].identifier;
                 // Ensure fourth element is an identifier.
                 if (not token_is_identifier(token.elements[3])) {
                     printf("ERROR: copy destination argument must be an identifier for now, sorry\n");
-                    return;
+                    exit(1);
                 }
                 requisite.text = token.elements[3].identifier;
             }
@@ -565,13 +303,13 @@ void parse(std::string_view source) {
                 // Ensure third element is an identifier.
                 if (not token_is_identifier(token.elements[2])) {
                     printf("ERROR: dependency target name must be an identifier\n");
-                    return;
+                    exit(1);
                 }
                 // Ensure that identifier refers to an existing target.
                 auto dep_target = build_scenario.target(token.elements[2].identifier);
                 if (dep_target == build_scenario.targets.end()) {
                     printf("ERROR: dependency on target %s but that target doesn't exist\n", token.elements[2].identifier.data());
-                    return;
+                    exit(1);
                 }
 
                 // If we are depending on a library target, link with it.
@@ -587,9 +325,5 @@ void parse(std::string_view source) {
         }
     }
     //BuildScenario::Print(build_scenario);
-    auto build_command = BuildScenario::Commands(build_scenario, "lbs", {
-        "c++ -c %i -o %o",
-        "c++ %i -o %o"
-    });
-    printf("%s\n", build_command.data());
+    return build_scenario;
 }

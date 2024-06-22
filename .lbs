@@ -2,6 +2,7 @@
 ;; itself... bootstrappy!
 
 (library libparser)
+(include-directories libparser inc)
 (sources libparser lib/parser/parser.cpp)
 
 (executable lbs)

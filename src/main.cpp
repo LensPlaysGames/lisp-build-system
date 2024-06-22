@@ -35,6 +35,16 @@ int main() {
         return 1;
     }
     std::string source = get_file_contents_or_exit(path);
-    parse(source);
+    auto build_scenario = parse(source);
+
+    auto build_commands = BuildScenario::Commands(build_scenario, "lbs", {
+        "c++ -c %i -o %o",
+        "c++ %i -o %o"
+    });
+
+    // Just print the command(s) for now.
+    auto flattened_command = build_commands.as_one_command();
+    printf("%s\n", flattened_command.data());
+
     return 0;
 }

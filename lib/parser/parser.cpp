@@ -198,6 +198,15 @@ struct Target {
     }
 };
 
+// Compiler:
+// - Object Compilation Template with %o (output filename) and %i
+//   (input source filename), probably eventually flags, defines, etc.
+//   "cc -c %i -o %o"
+// - Executable Compilation Template with %o (output filename),
+//   %i (input object(s)).
+//   "cc %i -o %o"
+// Using a BuildScenario and these templates, we should be able to produce
+// build commands.
 struct Compiler {
     const std::string library_template{};
     const std::string executable_template{};
@@ -584,13 +593,3 @@ void parse(std::string_view source) {
     });
     printf("%s\n", build_command.data());
 }
-
-// Compiler:
-// - Object Compilation Template with %o (output filename) and %i
-//   (input source filename), probably eventually flags, defines, etc.
-//   "cc -c %i -o %o"
-// - Executable Compilation Template with %o (output filename),
-//   %i (input object(s)).
-//   "cc %i -o %o"
-// Using a BuildScenario and these templates, we should be able to produce
-// build commands.

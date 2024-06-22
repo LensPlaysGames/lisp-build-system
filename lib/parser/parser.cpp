@@ -9,11 +9,11 @@ struct Token {
         UNKNOWN,
         EOF_,
         LIST,
+        IDENTIFIER,
     } kind;
 
     std::string identifier;
     std::vector<Token> elements;
-    ssize_t number;
 
     static void Print(const Token& token) {
         switch (token.kind) {
@@ -25,12 +25,17 @@ struct Token {
             break;
         case LIST: {
             printf("(");
+            bool notfirst = false;
             for (const auto& elem : token.elements) {
+                if (notfirst) printf(", ");
                 Token::Print(elem);
-                printf(", ");
+                notfirst = true;
             }
             printf(")");
         } break;
+        case IDENTIFIER:
+            printf("ID:\"%s\"", token.identifier.data());
+            break;
         }
     }
 };
@@ -61,6 +66,7 @@ auto lex(std::string_view& source) -> Token {
 
     // Identifier
     if (isalpha(c)) {
+        out.kind = Token::Kind::IDENTIFIER;
         // TODO: lex identifier
         out.identifier = std::string{c};
         // Until character is whitespace or delimiter...
@@ -70,20 +76,22 @@ auto lex(std::string_view& source) -> Token {
             // Now eat it.
             source.remove_prefix(1);
         }
-        printf("Lexed identifier %s\n", out.identifier.data());
         return out;
     }
     // List
     if (c == LEX_LIST_BEGIN) {
+        out.kind = Token::Kind::LIST;
         // Parse list contents (fancy fun LISP tunnels)
         while (source.size() and source.data()[0] != LEX_LIST_END) {
-            // TODO: parse() and stuff
+            out.elements.push_back(lex(source));
         }
+        // Eat list closing character.
+        return out;
         source.remove_prefix(1);
     }
     // Number
     if (isdigit(c)) {
-        // TODO: lex number
+        // TODO: lex number OR unreachable?
     }
 
     // TODO: unreachable
@@ -91,8 +99,12 @@ auto lex(std::string_view& source) -> Token {
 }
 
 void parse(std::string_view source) {
+    // TODO: The idea is this will parse the source into a list of actions to
+    // perform (i.e. shell commands to run for targets and that sort of thing).
     while (source.size()) {
         auto token = lex(source);
+        Token::Print(token);
+        printf("\n");
         if (token.kind == Token::Kind::EOF_)
             break;
         if (token.kind != Token::Kind::LIST) {
@@ -102,14 +114,37 @@ void parse(std::string_view source) {
 
         // First element of list should be an identifier that will help us to
         // parse this meaningfully into the build scenario.
+        if (token.elements.empty() or token.elements[0].kind != Token::Kind::IDENTIFIER) {
+            printf("ERROR: Expected identifier in operator position of top level list!\n");
+            return;
+        }
+        const auto identifier = token.elements[0].identifier;
 
         // TARGET CREATION
         // "executable", "library", "target"
+        if (identifier == "executable" or identifier == "library" or identifier == "target") {
+            // TODO: Ensure second element is an identifier that doesn't already refer
+            // to an existing target.
+
+            printf("TODO: Create target\n");
+            return;
+        }
 
         // TARGET RELATED
         // "sources", "include-directories"
+        if (identifier == "sources" or identifier == "include-directories") {
+            // TODO: Ensure second element is an identifier that refers to an existing
+            // target, and get a reference to that target so we can add a few details.
+            return;
+        }
 
         // TARGET REQUISITE REGISTRATION
         // "command", "copy", "dependency"
+        if (identifier == "command" or identifier == "copy" or identifier == "dependency") {
+            // TODO: Ensure second element is an identifier that refers to an existing
+            // target, and get a reference to that target so we can register a new
+            // requisite.
+            return;
+        }
     }
 }

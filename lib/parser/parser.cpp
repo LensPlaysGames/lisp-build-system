@@ -41,6 +41,16 @@ struct Token {
     }
 };
 
+constexpr bool token_is_eof(const Token &token) {
+    return token.kind == Token::Kind::EOF_;
+}
+constexpr bool token_is_list(const Token &token) {
+    return token.kind == Token::Kind::LIST;
+}
+constexpr bool token_is_identifier(const Token &token) {
+    return token.kind == Token::Kind::IDENTIFIER;
+}
+
 #define LEX_LIST_BEGIN '('
 #define LEX_LIST_END   ')'
 
@@ -188,6 +198,19 @@ struct Compiler {
 struct BuildScenario {
     std::vector<Target> targets;
 
+    // Check return value against targets.end()
+    auto target(const std::string_view name) {
+        return std::find_if(targets.begin(), targets.end(), [&] (const Target& t) {
+            return t.name == name;
+        });
+    };
+
+    auto target(const std::string_view name) const {
+        return std::find_if(targets.begin(), targets.end(), [&] (const Target& t) {
+            return t.name == name;
+        });
+    };
+
     static void Print(const BuildScenario& build_scenario) {
         for (const auto &target : build_scenario.targets)
             Target::Print(target);
@@ -198,9 +221,7 @@ struct BuildScenario {
                          std::string indent = "") {
         printf("%sCOMMANDS FOR TARGET %s:\n", indent.data(), target_name.data());
 
-        auto target = std::find_if(build_scenario.targets.begin(), build_scenario.targets.end(), [&] (const Target& t) {
-            return t.name == target_name;
-        });
+        auto target = build_scenario.target(target_name);
         if (target == build_scenario.targets.end()) {
             printf("ERROR: Target %s does not exist in build scenario", target_name.data());
             return;
@@ -318,16 +339,16 @@ void parse(std::string_view source) {
         Token::Print(token);
         printf("\n");
 
-        if (token.kind == Token::Kind::EOF_)
+        if (token_is_eof(token))
             break;
-        if (token.kind != Token::Kind::LIST) {
+        if (not token_is_list(token)) {
             printf("ERROR: Unexpected token at top level; this is LISP, so use lists!\n");
             return;
         }
 
         // First element of list should be an identifier that will help us to
         // parse this meaningfully into the build scenario.
-        if (token.elements.empty() or token.elements[0].kind != Token::Kind::IDENTIFIER) {
+        if (token.elements.empty() or not token_is_identifier(token.elements[0])) {
             printf("ERROR: Expected identifier in operator position of top level list!\n");
             return;
         }
@@ -338,7 +359,7 @@ void parse(std::string_view source) {
         if (identifier == "executable" or identifier == "library" or identifier == "target") {
             // Ensure second element is an identifier.
             if (token.elements.size() < 2 or
-                token.elements[1].kind != Token::Kind::IDENTIFIER) {
+                not token_is_identifier(token.elements[1])) {
                 printf("ERROR: Second element must be an identifier");
                 return;
             }
@@ -368,16 +389,14 @@ void parse(std::string_view source) {
         else if (identifier == "sources" or identifier == "include-directories") {
             // Ensure second element is an identifier.
             if (token.elements.size() < 2 or
-                token.elements[1].kind != Token::Kind::IDENTIFIER) {
+                not token_is_identifier(token.elements[1])) {
                 printf("ERROR: Second element must be an identifier");
                 return;
             }
             std::string name = token.elements[1].identifier;
             // Ensure that identifier that refers to an existing target, and get a
             // reference to that target so we can add a few details.
-            auto target = std::find_if(build_scenario.targets.begin(), build_scenario.targets.end(), [&] (const Target& t) {
-                return t.name == name;
-            });
+            auto target = build_scenario.target(name);
             if (target == build_scenario.targets.end()) {
                 printf("ERROR: Second element must refer to an existing target "
                        "(which \"%s\" does not)\n",
@@ -391,7 +410,7 @@ void parse(std::string_view source) {
                 for (auto it = token.elements.begin() + 2;
                      it != token.elements.end(); it++) {
                     // TODO: Handle (directory-contents)
-                    if (it->kind != Token::Kind::IDENTIFIER) {
+                    if (not token_is_identifier(*it)) {
                         printf("ERROR: Sources must be an identifier (just a file path)\n");
                         return;
                     }
@@ -405,7 +424,7 @@ void parse(std::string_view source) {
                 for (auto it = token.elements.begin() + 2;
                      it != token.elements.end(); it++) {
                     // TODO: Handle (directory-contents)
-                    if (it->kind != Token::Kind::IDENTIFIER) {
+                    if (not token_is_identifier(*it)) {
                         printf("ERROR: Include directories must be an identifier (just a file path)\n");
                         return;
                     }
@@ -421,16 +440,14 @@ void parse(std::string_view source) {
         else if (identifier == "command" or identifier == "copy" or identifier == "dependency") {
             // Ensure second element is an identifier.
             if (token.elements.size() < 2 or
-                token.elements[1].kind != Token::Kind::IDENTIFIER) {
+                not token_is_identifier(token.elements[1])) {
                 printf("ERROR: Second element must be an identifier");
                 return;
             }
             std::string name = token.elements[1].identifier;
             // Ensure that identifier that refers to an existing target, and get a
             // reference to that target so we can add a few details.
-            auto target = std::find_if(build_scenario.targets.begin(), build_scenario.targets.end(), [&] (const Target& t) {
-                return t.name == name;
-            });
+            auto target = build_scenario.target(name);
             if (target == build_scenario.targets.end()) {
                 printf("ERROR: Second element must refer to an existing target "
                        "(which \"%s\" does not)\n",
@@ -447,7 +464,7 @@ void parse(std::string_view source) {
                 for (auto it = token.elements.begin() + 3;
                      it != token.elements.end(); it++) {
                     // TODO: Handle (directory-contents)
-                    if (it->kind != Token::Kind::IDENTIFIER) {
+                    if (not token_is_identifier(*it)) {
                         printf("ERROR: command arguments must be an identifier\n");
                         return;
                     }

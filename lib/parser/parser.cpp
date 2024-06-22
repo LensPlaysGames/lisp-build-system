@@ -181,7 +181,7 @@ struct Target {
 };
 
 struct Compiler {
-    const std::string object_template{};
+    const std::string library_template{};
     const std::string executable_template{};
 };
 
@@ -194,8 +194,9 @@ struct BuildScenario {
     }
 
     static void Commands(const BuildScenario &build_scenario,
-                         std::string target_name, Compiler compiler) {
-        printf("COMMANDS FOR TARGET %s:\n", target_name.data());
+                         std::string target_name, Compiler compiler,
+                         std::string indent = "") {
+        printf("%sCOMMANDS FOR TARGET %s:\n", indent.data(), target_name.data());
 
         auto target = std::find_if(build_scenario.targets.begin(), build_scenario.targets.end(), [&] (const Target& t) {
             return t.name == target_name;
@@ -207,17 +208,17 @@ struct BuildScenario {
         for (const auto &requisite : target->requisites) {
             switch (requisite.kind) {
             case Target::Requisite::COMMAND:
-                printf("%s", requisite.text.data());
+                printf("%s%s", indent.data(), requisite.text.data());
                 for (const auto &arg : requisite.arguments)
                     printf(" %s", arg.data());
                 printf("\n");
                 break;
             case Target::Requisite::COPY:
-                printf("cp %s %s\n", requisite.text.data(), requisite.destination.data());
+                printf("%scp %s %s\n", indent.data(), requisite.text.data(), requisite.destination.data());
                 break;
             case Target::Requisite::DEPENDENCY:
-                // FIXME: compiler for dependency.
-                BuildScenario::Commands(build_scenario, requisite.text, compiler);
+                // FIXME: what compiler to use for dependency.
+                BuildScenario::Commands(build_scenario, requisite.text, compiler, indent + "    ");
                 break;
             }
         }
@@ -260,7 +261,49 @@ struct BuildScenario {
                     break;
                 }
             }
-            printf("%s\n", build_executable_command.data());
+            printf("%s%s\n", indent.data(), build_executable_command.data());
+        } else if (target->kind == Target::Kind::LIBRARY) {
+            std::string build_library_command{};
+            for (auto i = 0; i < compiler.library_template.size(); ++i) {
+                const char c = compiler.library_template.data()[i];
+                switch (c) {
+
+                case '%': {
+                    if (i + 1 >= compiler.library_template.size()) {
+                        build_library_command += c;
+                        break;
+                    }
+                    const char nextc = compiler.library_template.data()[++i];
+                    if (nextc == 'i') {
+                        bool notfirst{false};
+                        for (const auto& source : target->sources) {
+                            if (notfirst) build_library_command += ' ';
+                            build_library_command += source;
+                            notfirst = true;
+                        }
+                    } else if (nextc == 'o') {
+                        build_library_command += target_name;
+#ifdef _WIN32
+                        build_library_command += ".exe";
+#endif
+                    } else {
+                        printf("ERROR: Unrecognized format specifier in "
+                               "compiler template string\n"
+                               "    format specifier: %c\n"
+                               "    template string: %s\n",
+                               nextc,
+                               compiler.library_template.data());
+                    }
+                } break;
+
+                default:
+                    build_library_command += c;
+                    break;
+                }
+            }
+            printf("%s%s\n", indent.data(), build_library_command.data());
+        } else {
+            printf("ERROR: Unhandled target kind %d in BuildScenario::Commands(), sorry\n", target->kind);
         }
     }
 };
@@ -431,7 +474,10 @@ void parse(std::string_view source) {
         }
     }
     BuildScenario::Print(build_scenario);
-    BuildScenario::Commands(build_scenario, "foo", {"cc -c %i -o %o", "cc %i -o %o"});
+    BuildScenario::Commands(build_scenario, "lbs", {
+        "c++ -c %i -o %o",
+        "c++ %i -o %o"
+    });
 }
 
 // Compiler:

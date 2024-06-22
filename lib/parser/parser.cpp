@@ -288,14 +288,9 @@ struct BuildScenario {
                 build_executable_command += include_dir;
             }
 
-            // If there are libraries to link with, look for them at least in the
-            // current working directory.
-            if (target->linked_libraries.size())
-                build_executable_command += " -L.";
-
             // Linked libraries.
             for (const auto& library_name : target->linked_libraries) {
-                build_executable_command += " -l:";
+                build_executable_command += " ";
                 build_executable_command += library_name;
             }
 
@@ -345,11 +340,8 @@ struct BuildScenario {
                 build_library_command += include_dir;
             }
 
-            if (target->linked_libraries.size())
-                build_library_command += " -L.";
-
             for (const auto& library_name : target->linked_libraries) {
-                build_library_command += " -l";
+                build_library_command += " ";
                 build_library_command += library_name;
             }
 

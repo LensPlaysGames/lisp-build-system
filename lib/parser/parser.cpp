@@ -246,6 +246,8 @@ struct BuildScenario {
                 build_commands.push_back(command);
             } break;
             case Target::Requisite::COPY: {
+                // TODO: Handle (directory), (directory-contents)
+                // TODO: Record artifact(s)
                 std::string copy_command{"cp "};
                 copy_command += requisite.text;
                 copy_command += ' ';
@@ -278,6 +280,7 @@ struct BuildScenario {
                             notfirst = true;
                         }
                     } else if (nextc == 'o') {
+                        // TODO: Record artifact(s)
                         build_executable_command += target_name;
 #ifdef _WIN32
                         build_executable_command += ".exe";
@@ -287,8 +290,8 @@ struct BuildScenario {
                                "compiler template string\n"
                                "    format specifier: %c\n"
                                "    template string: %s\n",
-                               nextc,
-                               compiler.executable_template.data());
+                               nextc, compiler.executable_template.data());
+                        exit(1);
                     }
                 } break;
 
@@ -331,10 +334,8 @@ struct BuildScenario {
                             notfirst = true;
                         }
                     } else if (nextc == 'o') {
+                        // TODO: Record artifact(s)
                         build_library_command += target_name;
-#ifdef _WIN32
-                        build_library_command += ".exe";
-#endif
                     } else {
                         printf("ERROR: Unrecognized format specifier in "
                                "compiler template string\n"
@@ -365,6 +366,7 @@ struct BuildScenario {
         } else {
             printf("ERROR: Unhandled target kind %d in BuildScenario::Commands(), sorry\n", target->kind);
         }
+
         std::string out_command{};
         bool notfirst{false};
         for (const auto& command : build_commands) {
@@ -439,6 +441,7 @@ void parse(std::string_view source) {
 
         // TARGET RELATED
         // "sources", "include-directories"
+        // TODO: "defines", "flags" for executables and libraries
         else if (identifier == "sources" or identifier == "include-directories") {
             // Ensure second element is an identifier.
             if (token.elements.size() < 2 or
@@ -454,7 +457,14 @@ void parse(std::string_view source) {
                 printf("ERROR: Second element must refer to an existing target "
                        "(which \"%s\" does not)\n",
                        name.data());
-                return;
+                exit(1);
+            }
+            if (target->kind != Target::Kind::EXECUTABLE and
+                target->kind != Target::Kind::LIBRARY) {
+                printf("ERROR: %s is only applicable to executable and library "
+                       "targets",
+                       identifier.data());
+                exit(1);
             }
 
             // Register sources in target

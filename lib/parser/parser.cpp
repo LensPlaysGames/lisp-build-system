@@ -1,8 +1,9 @@
+#include <algorithm>
 #include <cctype>
+#include <format>
 #include <string>
 #include <string_view>
 #include <vector>
-#include <format>
 
 struct Token {
     enum Kind {
@@ -172,7 +173,13 @@ void parse(std::string_view source) {
             }
             std::string name = token.elements[1].identifier;
 
-            // TODO: Ensure name doesn't already refer to an existing target.
+            // Ensure name doesn't already refer to an existing target.
+            for (const auto &target : build_scenario.targets) {
+                if (name == target.name) {
+                    printf("ERROR: Targets must not share a name (hint: %s)\n", name.data());
+                    return;
+                }
+            }
 
             Target t{name};
 
@@ -185,9 +192,52 @@ void parse(std::string_view source) {
         // TARGET RELATED
         // "sources", "include-directories"
         if (identifier == "sources" or identifier == "include-directories") {
-            // TODO: Ensure second element is an identifier that refers to an existing
-            // target, and get a reference to that target so we can add a few details.
-            return;
+            // Ensure second element is an identifier.
+            if (token.elements.size() < 2 or
+                token.elements[1].kind != Token::Kind::IDENTIFIER) {
+                printf("ERROR: Second element must be an identifier");
+                return;
+            }
+            std::string name = token.elements[1].identifier;
+            // TODO: Ensure that identifier that refers to an existing target, and get
+            // a reference to that target so we can add a few details.
+            auto target = std::find_if(build_scenario.targets.begin(), build_scenario.targets.end(), [&] (const Target& t) {
+                return t.name == name;
+            });
+            if (target == build_scenario.targets.end()) {
+                printf("ERROR: Second element must refer to an existing target "
+                       "(which \"%s\" does not)\n",
+                       name.data());
+                return;
+            }
+
+            if (identifier == "sources") {
+                // Begin iterating all elements past target name.
+                for (auto it = token.elements.begin() + 2;
+                     it != token.elements.end(); it++) {
+                    // TODO: Handle (directory-contents)
+                    if (it->kind != Token::Kind::IDENTIFIER) {
+                        printf("ERROR: Sources must be an identifier (just a file path)\n");
+                        return;
+                    }
+                    target->sources.push_back(it->identifier);
+                }
+            }
+
+            if (identifier == "include-directories") {
+                // Begin iterating all elements past target name.
+                for (auto it = token.elements.begin() + 2;
+                     it != token.elements.end(); it++) {
+                    // TODO: Handle (directory-contents)
+                    if (it->kind != Token::Kind::IDENTIFIER) {
+                        printf("ERROR: Include directories must be an identifier (just a file path)\n");
+                        return;
+                    }
+                    target->include_directories.push_back(it->identifier);
+                }
+            }
+
+            continue;
         }
 
         // TARGET REQUISITE REGISTRATION

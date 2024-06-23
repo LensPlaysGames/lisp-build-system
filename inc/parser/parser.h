@@ -327,9 +327,11 @@ struct BuildScenario {
             }
 
             // Linked libraries.
-            for (const auto& library_name : target->linked_libraries) {
-                build_command += ' ';
-                build_command += library_name;
+            if (target->kind == Target::Kind::EXECUTABLE) {
+                for (const auto& library_name : target->linked_libraries) {
+                    build_command += ' ';
+                    build_command += library_name;
+                }
             }
 
             build_commands.push_back(build_command);

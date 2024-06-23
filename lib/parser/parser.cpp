@@ -158,6 +158,7 @@ auto lex(std::string_view& source) -> Token {
     }
 
     // TODO: unreachable
+    exit(2);
     return out;
 }
 

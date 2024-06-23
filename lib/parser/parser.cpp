@@ -71,21 +71,34 @@ bool isdelimiter(const char c) {
            or c == LEX_LINE_COMMENT_BEGIN;
 }
 
-auto lex(std::string_view& source) -> Token {
-    Token out{};
-
-    // Eat comments.
+bool lex_eat_comments(std::string_view &source) {
+    bool ret{false};
     while (source.size() and source.data()[0] == LEX_LINE_COMMENT_BEGIN) {
+        ret = true;
         // Eat everything up until newline.
         while (source.size() and source.data()[0] != '\n')
             source.remove_prefix(1);
         // Eat the newline.
         source.remove_prefix(1);
     }
+    return ret;
+}
 
-    // Eat whitespace.
-    while (source.size() and isspace(source.data()[0]))
+// Returns true iff whitespace was eaten.
+bool lex_eat_whitespace(std::string_view &source) {
+    bool ret{false};
+    while (source.size() and isspace(source.data()[0])) {
+        ret = true;
         source.remove_prefix(1);
+    }
+    return ret;
+}
+
+auto lex(std::string_view& source) -> Token {
+    Token out{};
+
+    while (lex_eat_comments(source) or lex_eat_whitespace(source))
+        ;
 
     // Cannot lex a token from an empty source.
     if (source.empty()) return Token::eof();

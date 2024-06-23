@@ -38,8 +38,8 @@ int main() {
     auto build_scenario = parse(source);
 
     auto build_commands = BuildScenario::Commands(build_scenario, "lbs", {
-        "c++ -c %i -o %o",
-        "c++ %i -o %o"
+        "c++ -c %f %d %i -o %o",
+        "c++ %f %d %i -o %o"
     });
 
     // Just print the command(s) for now.

@@ -33,7 +33,8 @@ struct Target {
     std::vector<std::string> sources;
     std::vector<std::string> include_directories;
     std::vector<std::string> linked_libraries;
-    // TODO: flags, defines
+    std::vector<std::string> flags;
+    std::vector<std::string> defines;
 
     struct Requisite {
         enum Kind {
@@ -64,6 +65,13 @@ struct Target {
     };
 
     std::vector<Requisite> requisites;
+
+    static auto NamedTarget(Target::Kind kind, std::string name)
+        -> Target {
+        return Target {
+            kind, std::move(name), {}, {}, {}, {}, {}, {}
+        };
+    }
 
     static void Print(const Target &target) {
         switch (target.kind) {
@@ -99,6 +107,110 @@ struct Target {
         }
     }
 };
+
+// FIXME: We should move this to lib/compiler/compiler.cpp and also make
+// inc/compiler/compiler.h a thing... For now it's static.
+static auto compiler_format(std::string format, const Target& target) -> std::string {
+    const std::string output_name = target.name
+#ifdef _WIN32
+    + ".exe"
+#endif
+            ;
+
+    std::string build_command{};
+
+    // For emitting warnings.
+    bool format_has_input{false};
+    bool format_has_output{false};
+    bool format_has_flags{false};
+    bool format_has_defines{false};
+
+    for (size_t i = 0; i < format.size(); ++i) {
+        const char c = format.data()[i];
+        switch (c) {
+
+        case '%': {
+            if (i + 1 >= format.size()) {
+                build_command += c;
+                break;
+            }
+
+            const char nextc = format.data()[++i];
+            switch (nextc) {
+            case 'i': {
+                format_has_input = true;
+                bool notfirst{false};
+                for (const auto& source : target.sources) {
+                    if (notfirst) build_command += ' ';
+                    build_command += source;
+                    notfirst = true;
+                }
+            } break;
+
+            case 'o': {
+                format_has_output = true;
+                build_command += output_name;
+            } break;
+
+            case 'f': {
+                format_has_flags = true;
+                bool notfirst{false};
+                for (const auto& flag : target.flags) {
+                    if (notfirst) build_command += ' ';
+                    build_command += flag;
+                    notfirst = true;
+                }
+            } break;
+
+            case 'd': {
+                format_has_defines = true;
+                bool notfirst{false};
+                for (const auto& define : target.defines) {
+                    if (notfirst) build_command += ' ';
+                    build_command += define;
+                    notfirst = true;
+                }
+            } break;
+
+            default:
+                printf("ERROR: Unrecognized format specifier in "
+                       "compiler template string\n"
+                       "    format specifier: %c\n"
+                       "    template string: %s\n",
+                       nextc, format.data());
+                exit(1);
+                break;
+            }
+        } break;
+
+        default:
+            build_command += c;
+            break;
+        }
+    }
+    if (not format_has_input) {
+        printf(
+               "WARNING: Executable format string for compiler does not have input "
+               "format specifier, and likely will not work without it.\n");
+    }
+    if (not format_has_output) {
+        printf(
+               "WARNING: Executable format string for compiler does not have output "
+               "format specifier, and likely will not work without it.\n");
+    }
+    if (not format_has_flags) {
+        printf(
+               "WARNING: Executable format string for compiler does not have flags "
+               "format specifier, and may not work without it.\n");
+    }
+    if (not format_has_defines) {
+        printf(
+               "WARNING: Executable format string for compiler does not have defines "
+               "format specifier, and may not work without it.\n");
+    }
+
+    return build_command;
+}
 
 struct BuildScenario {
     std::vector<Target> targets;
@@ -178,115 +290,25 @@ struct BuildScenario {
                 break;
             }
         }
-        if (target->kind == Target::Kind::EXECUTABLE) {
-            const std::string output_name = target_name
-#ifdef _WIN32
-            + ".exe"
-#endif
-            ;
+        if (target->kind == Target::Kind::EXECUTABLE or target->kind == Target::Kind::LIBRARY) {
             // Record artifact(s)
             build_commands.artifacts.push_back(target_name);
 
-            std::string build_executable_command{};
-            for (size_t i = 0; i < compiler.executable_template.size(); ++i) {
-                const char c = compiler.executable_template.data()[i];
-                switch (c) {
-
-                case '%': {
-                    if (i + 1 >= compiler.executable_template.size()) {
-                        build_executable_command += c;
-                        break;
-                    }
-                    const char nextc = compiler.executable_template.data()[++i];
-                    if (nextc == 'i') {
-                        bool notfirst{false};
-                        for (const auto& source : target->sources) {
-                            if (notfirst) build_executable_command += ' ';
-                            build_executable_command += source;
-                            notfirst = true;
-                        }
-                    } else if (nextc == 'o') {
-                        build_executable_command += output_name;
-                    } else {
-                        printf("ERROR: Unrecognized format specifier in "
-                               "compiler template string\n"
-                               "    format specifier: %c\n"
-                               "    template string: %s\n",
-                               nextc, compiler.executable_template.data());
-                        exit(1);
-                    }
-                } break;
-
-                default:
-                    build_executable_command += c;
-                    break;
-                }
-            }
+            auto build_command = compiler_format(target->kind == Target::Kind::EXECUTABLE ? compiler.executable_template : compiler.library_template, *target);
 
             // Include directories.
             for (const auto& include_dir : target->include_directories) {
-                build_executable_command += " -I";
-                build_executable_command += include_dir;
+                build_command += " -I";
+                build_command += include_dir;
             }
 
             // Linked libraries.
             for (const auto& library_name : target->linked_libraries) {
-                build_executable_command += " ";
-                build_executable_command += library_name;
+                build_command += ' ';
+                build_command += library_name;
             }
 
-            build_commands.push_back(build_executable_command);
-        } else if (target->kind == Target::Kind::LIBRARY) {
-            // Record artifact(s)
-            build_commands.artifacts.push_back(target_name);
-
-            std::string build_library_command{};
-            for (size_t i = 0; i < compiler.library_template.size(); ++i) {
-                const char c = compiler.library_template.data()[i];
-                switch (c) {
-
-                case '%': {
-                    if (i + 1 >= compiler.library_template.size()) {
-                        build_library_command += c;
-                        break;
-                    }
-                    const char nextc = compiler.library_template.data()[++i];
-                    if (nextc == 'i') {
-                        bool notfirst{false};
-                        for (const auto& source : target->sources) {
-                            if (notfirst) build_library_command += ' ';
-                            build_library_command += source;
-                            notfirst = true;
-                        }
-                    } else if (nextc == 'o') {
-                        build_library_command += target_name;
-                    } else {
-                        printf("ERROR: Unrecognized format specifier in "
-                               "compiler template string\n"
-                               "    format specifier: %c\n"
-                               "    template string: %s\n",
-                               nextc,
-                               compiler.library_template.data());
-                    }
-                } break;
-
-                default:
-                    build_library_command += c;
-                    break;
-                }
-            }
-
-            for (const auto& include_dir : target->include_directories) {
-                build_library_command += " -I";
-                build_library_command += include_dir;
-            }
-
-            for (const auto& library_name : target->linked_libraries) {
-                build_library_command += " ";
-                build_library_command += library_name;
-            }
-
-            build_commands.push_back(build_library_command);
+            build_commands.push_back(build_command);
         } else {
             printf("ERROR: Unhandled target kind %d in BuildScenario::Commands(), sorry\n", target->kind);
             exit(1);

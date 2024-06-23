@@ -18,6 +18,12 @@ struct Token {
     std::string identifier;
     std::vector<Token> elements;
 
+    static auto eof() -> Token {
+        return {
+            Token::Kind::EOF_, "", {}
+        };
+    }
+
     static void Print(const Token& token) {
         switch (token.kind) {
         case UNKNOWN:
@@ -56,6 +62,8 @@ constexpr bool token_is_identifier(const Token &token) {
 #define LEX_LIST_BEGIN '('
 #define LEX_LIST_END   ')'
 #define LEX_LINE_COMMENT_BEGIN ';'
+#define LEX_STRING_BEGIN '"'
+#define LEX_STRING_END   '"'
 
 bool isdelimiter(const char c) {
     return c == LEX_LIST_BEGIN
@@ -64,7 +72,6 @@ bool isdelimiter(const char c) {
 }
 
 auto lex(std::string_view& source) -> Token {
-    static const Token eof{Token::Kind::EOF_};
     Token out{};
 
     // Eat comments.
@@ -81,7 +88,7 @@ auto lex(std::string_view& source) -> Token {
         source.remove_prefix(1);
 
     // Cannot lex a token from an empty source.
-    if (source.empty()) return eof;
+    if (source.empty()) return Token::eof();
 
     // Get first character from source.
     const auto c = source.data()[0];
@@ -89,17 +96,22 @@ auto lex(std::string_view& source) -> Token {
     source.remove_prefix(1);
 
     // Identifier
-    if (isalpha(c)) {
+    if (c == '"') {
         out.kind = Token::Kind::IDENTIFIER;
-        // lex identifier
-        out.identifier = std::string{c};
-        // Until character is whitespace or delimiter...
-        while (not isspace(source.data()[0]) and not isdelimiter(source.data()[0])) {
-            // Add character to identifier.
-            out.identifier += tolower(source.data()[0]);
+        while (source.size() and source.data()[0] != LEX_STRING_END) {
+            // Add character that is not the initial string begin or string end symbol
+            // to the string contents.
+            out.identifier += source.data()[0];
             // Now eat it.
             source.remove_prefix(1);
         }
+        // Handle "open string then EOF" case
+        if (source.empty()) {
+            printf("ERROR: Got EOF before string closing symbol (%c)\n", LEX_STRING_END);
+            exit(1);
+        }
+        // Eat string end symbol.
+        source.remove_prefix(1);
         return out;
     }
     // List
@@ -111,6 +123,20 @@ auto lex(std::string_view& source) -> Token {
         }
         // Eat list closing character.
         source.remove_prefix(1);
+        return out;
+    }
+    // Identifier Part Two
+    if (not isspace(c) and not isdelimiter(c)) {
+        out.kind = Token::Kind::IDENTIFIER;
+        // lex identifier
+        out.identifier = std::string{c};
+        // Until character is whitespace or delimiter...
+        while (not isspace(source.data()[0]) and not isdelimiter(source.data()[0])) {
+            // Add character to identifier.
+            out.identifier += source.data()[0];
+            // Now eat it.
+            source.remove_prefix(1);
+        }
         return out;
     }
     // Number
@@ -175,18 +201,16 @@ auto parse(std::string_view source) -> BuildScenario {
                 printf("ERROR: Unhandled target creation identifier %s\n", identifier.data());
                 exit(1);
             }
-            Target t{t_kind, name};
 
             // Register target in BuildScenario.
-            build_scenario.targets.push_back(t);
+            build_scenario.targets.push_back(Target::NamedTarget(t_kind, name));
 
             continue;
         }
 
         // TARGET RELATED
-        // "sources", "include-directories"
-        // TODO: "defines", "flags" for executables and libraries
-        else if (identifier == "sources" or identifier == "include-directories") {
+        // "sources", "include-directories", "defines", "flags" for executables and libraries
+        else if (identifier == "sources" or identifier == "include-directories" or identifier == "flags" or identifier == "defines") {
             // Ensure second element is an identifier.
             if (token.elements.size() < 2 or
                 not token_is_identifier(token.elements[1])) {
@@ -237,6 +261,37 @@ auto parse(std::string_view source) -> BuildScenario {
                     }
                     target->include_directories.push_back(it->identifier);
                 }
+            }
+
+            else if (identifier == "defines") {
+                // Begin iterating all elements past target name.
+                for (auto it = token.elements.begin() + 2;
+                     it != token.elements.end(); it++) {
+                    if (not token_is_identifier(*it)) {
+                        printf("ERROR: Defines must be identifiers\n");
+                        exit(1);
+                    }
+                    target->defines.push_back(it->identifier);
+                }
+            }
+
+            else if (identifier == "flags") {
+                // Begin iterating all elements past target name.
+                for (auto it = token.elements.begin() + 2;
+                     it != token.elements.end(); it++) {
+                    if (not token_is_identifier(*it)) {
+                        printf("ERROR: Flags must be identifiers\n");
+                        exit(1);
+                    }
+                    target->flags.push_back(it->identifier);
+                }
+            }
+
+            else {
+                printf("ERROR: Unhandled target related operator %s. Likely an "
+                       "internal error, sorry.\n",
+                       identifier.data());
+                exit(1);
             }
 
             continue;

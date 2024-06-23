@@ -1,3 +1,22 @@
+* Compiler Configuration
+START [2024-06-22 Sat 18:55]
+FINAL ?
+
+Okay this is just brainstorming...
+
+- Compiler configuration provided in a file like =--compiler-config /path/to/config=
+- Compiler configuration provided in LISP build file i.e. =(compiler (executable-template "..."))=
+
+I think I like the "in the build file" one at the moment.
+
+=(compiler NAME EXECUTABLE-TEMPLATE LIBRARY-TEMPLATE)=
+
+=(use-compiler TARGET NAME)=
+
+The idea would then be to have some reasonable, default compilers defined (Using =cc= for C, =c++= for C++, etc), and the user can extend the system to do anything they need it to (like use a specific compiler).
+
+NOTE: Important to note that =(compiler FOO)= will overwrite the compiler named =FOO= even if it already exists; this will allow people to easily change the C compiler for a project just by redefining =cc= at the top/beforehand or anything like that, and they won't have to dig through every build file to replace the name in =use-compiler=.
+
 * Consolidation Idea
 START [2024-06-22 Sat 18:52]
 FINAL ?

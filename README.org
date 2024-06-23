@@ -2,17 +2,28 @@
 
 A lil LISPy build system.
 
-#+begin_src emacs-lisp :tangle .lbs
-;; This file describes the build scenario of the build system itself.
-;; Meta, and not the bad kind!
+#+begin_src lisp :tangle .lbs
+;; Yeah, this is a lisp-build-system build file for lisp-build-system
+;; itself... bootstrappy!
 
 (library libparser)
+(include-directories libparser inc)
 (sources libparser lib/parser/parser.cpp)
+(flags libparser -Wall -Wextra -Wpedantic -Werror)
+
+(library libtests)
+(include-directories libtests inc)
+(sources libtests lib/tests/tests.cpp)
+(flags libparser -Wall -Wextra -Wpedantic -Werror)
+(dependency libtests libparser)
 
 (executable lbs)
 (include-directories lbs inc)
 (sources lbs src/main.cpp)
+(flags lbs -Wall -Wextra -Wpedantic -Werror)
 (dependency lbs libparser)
+(dependency lbs libtests)
+;; (defines lbs -DLBS_TEST)
 #+end_src lisp
 
 To use the build system, first of all build it. This can be done by bootstrapping with a pre-built binary or by using CMake. Either way, once you have an =lbs= binary available, just run it from this directory (or any directory with a =.lbs= build scenario description file). Most commonly this is something like =./bld/lbs=.

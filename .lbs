@@ -6,8 +6,16 @@
 (sources libparser lib/parser/parser.cpp)
 (flags libparser -Wall -Wextra -Wpedantic -Werror)
 
+(library libtests)
+(include-directories libtests inc)
+(sources libtests lib/tests/tests.cpp)
+(flags libparser -Wall -Wextra -Wpedantic -Werror)
+(dependency libtests libparser)
+
 (executable lbs)
 (include-directories lbs inc)
 (sources lbs src/main.cpp)
-(dependency lbs libparser)
 (flags lbs -Wall -Wextra -Wpedantic -Werror)
+(dependency lbs libparser)
+(dependency lbs libtests)
+;; (defines lbs -DLBS_TEST)

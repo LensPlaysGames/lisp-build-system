@@ -3,6 +3,7 @@
 #include <cstdio>
 
 #include <parser/parser.h>
+#include <tests/tests.h>
 
 auto get_file_contents_or_exit(const std::string_view path) -> std::string {
     auto f = fopen(path.data(), "rb");
@@ -28,6 +29,10 @@ auto get_file_contents_or_exit(const std::string_view path) -> std::string {
 }
 
 int main() {
+#ifdef LBS_TEST
+    tests_run();
+#endif
+
     const char* path = ".lbs";
     if (not std::filesystem::exists(path)) {
         printf("No build file at .lbs found, exiting\n");

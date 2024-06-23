@@ -214,6 +214,7 @@ static auto compiler_format(std::string format, const Target& target) -> std::st
 
 struct BuildScenario {
     std::vector<Target> targets;
+    std::vector<std::string> targets_built;
 
     // Check return value against targets.end()
     auto target(const std::string_view name) {
@@ -227,6 +228,21 @@ struct BuildScenario {
             return t.name == name;
         });
     };
+
+    bool target_built(const std::string_view name) const {
+        auto found = std::find(targets_built.begin(), targets_built.end(), name);
+        return found != targets_built.end();
+    }
+    void mark_target_built(std::string name) {
+        if (target_built(name)) {
+            printf("ERROR: Marking target %s as built but it has already been marked as such.\n", name.data());
+            exit(1);
+        }
+        targets_built.push_back(std::move(name));
+    }
+    void mark_target_built(const Target &t) {
+        mark_target_built(t.name);
+    }
 
     static void Print(const BuildScenario& build_scenario) {
         for (const auto &target : build_scenario.targets)
@@ -257,13 +273,21 @@ struct BuildScenario {
         }
     };
 
-    static auto Commands(const BuildScenario &build_scenario,
+    static auto Commands(BuildScenario& build_scenario,
                          std::string target_name, Compiler compiler) -> BuildCommands {
+        // Deduplication: don't build something already built.
+        if (build_scenario.target_built(target_name)) return {};
+
+        // Ensure target exists, and get a reference to it.
         auto target = build_scenario.target(target_name);
         if (target == build_scenario.targets.end()) {
             printf("ERROR: Target %s does not exist in build scenario", target_name.data());
             return {};
         }
+
+        // Deduplication: mark target as having been built.
+        build_scenario.mark_target_built(target_name);
+
         BuildCommands build_commands{};
         for (const auto& requisite : target->requisites) {
             switch (requisite.kind) {

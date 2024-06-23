@@ -26,12 +26,8 @@ A lil LISPy build system.
 ;; (defines lbs -DLBS_TEST)
 #+end_src lisp
 
-To use the build system, first of all build it. This can be done by bootstrapping with a pre-built binary or by using CMake. Either way, once you have an =lbs= binary available, just run it from this directory (or any directory with a =.lbs= build scenario description file). Most commonly this is something like =./bld/lbs=.
+To use the build system, first of all build it. This can be done by bootstrapping with a pre-built binary or by using CMake. Either way, once you have an =lbs= binary available, just run it (with the =-n= argument signifying a dry run) from this directory (or any directory with a =.lbs= build scenario description file). Most commonly this looks something like =./bld/lbs -n=.
 
-What you'll see is a command (or commands) that should look familiar to you if you've compiled a C or C++ project before.
+What you'll see is a command or commands that should look familiar to you if you've compiled a C or C++ project before, along with a few self-explanatory actions like file copies, deletions, etc.
 
-Iff the commands look like something you are okay with running on your system, you can use =eval `./bld/lbs`= to run it (or them). Note the backticks which utilize a sub-shell to replace the first argument with the output of running =lbs=, therefore running that command you saw previously.
-
-On Windows, you /currently/ have to redirect to a batch file and then call that batch file. i.e. =bld\lbs.exe > build.bat= followed by =build.bat=.
-
-In the future, we will provide a command line flag to make =lbs= run the commands itself; or maybe that will be the default and there will be a flag to do a "dry run".
+Iff the commands look like something you are okay with running on your system, you can use =./bld/lbs= to run them. If you are in this directory, you will end up with an executable at =./lbs=.

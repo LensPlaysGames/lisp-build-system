@@ -1,4 +1,30 @@
-* LISP Build System
+* Consolidation Idea
+START [2024-06-22 Sat 18:52]
+FINAL ?
+
+Current executable target example:
+#+begin_src lisp
+(executable lbs)
+(include-directories lbs inc)
+(sources lbs src/main.cpp)
+(flags lbs -Wall -Wextra -Wpedantic -Werror)
+(dependency lbs libparser)
+(dependency lbs libtests)
+#+end_src lisp
+
+Proposed executable target example:
+#+begin_src lisp
+(executable lbs
+  (include-directories inc)
+  (sources src/main.cpp)
+  (flags -Wall -Wextra -Wpedantic -Werror)
+  (dependency libparser)
+  (dependency libtests))
+#+end_src lisp
+
+Why? Because I keep making the mistake of having the wrong target name as the second argument due to copy-and-paste errors and such.
+
+* OLD LISP Build System README
 
 This is just an idea for now: CMake but a locally-built LISP so you can see and edit the code that makes up the primitives, macros, etc.
 

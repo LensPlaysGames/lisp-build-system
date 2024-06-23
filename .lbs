@@ -1,21 +1,25 @@
 ;; Yeah, this is a lisp-build-system build file for lisp-build-system
 ;; itself... bootstrappy!
 
-(library libparser)
-(include-directories libparser inc)
-(sources libparser lib/parser/parser.cpp)
-(flags libparser -Wall -Wextra -Wpedantic -Werror)
+(library
+ libparser
+ (include-directories inc)
+ (sources lib/parser/parser.cpp)
+ (flags -Wall -Wextra -Wpedantic -Werror))
 
-(library libtests)
-(include-directories libtests inc)
-(sources libtests lib/tests/tests.cpp)
-(flags libtests -Wall -Wextra -Wpedantic -Werror)
+(library
+ libtests
+ (include-directories inc)
+ (sources lib/tests/tests.cpp)
+ (flags -Wall -Wextra -Wpedantic -Werror))
 (dependency libtests libparser)
 
-(executable lbs)
-(include-directories lbs inc)
-(sources lbs src/main.cpp)
-(flags lbs -Wall -Wextra -Wpedantic -Werror)
+(executable
+ lbs
+ (include-directories inc)
+ (sources src/main.cpp)
+ ;; (defines -DLBS_TEST)
+ (flags -Wall -Wextra -Wpedantic -Werror))
+
 (dependency lbs libparser)
 (dependency lbs libtests)
-;; (defines lbs -DLBS_TEST)

@@ -19,7 +19,7 @@ NOTE: Important to note that =(compiler FOO)= will overwrite the compiler named 
 
 * Consolidation Idea
 START [2024-06-22 Sat 18:52]
-FINAL ?
+FINAL [2024-06-22 Sat 19:36]
 
 Current executable target example:
 #+begin_src lisp

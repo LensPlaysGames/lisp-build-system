@@ -171,6 +171,8 @@ auto lex(std::string_view& source) -> Token {
     }
 
     // TODO: unreachable
+    printf("UNREACHABLE\n");
+    printf("  char is %c\n", c);
     exit(2);
     return out;
 }

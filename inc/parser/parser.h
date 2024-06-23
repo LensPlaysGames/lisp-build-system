@@ -301,12 +301,13 @@ struct BuildScenario {
             } break;
             case Target::Requisite::COPY: {
                 // TODO: Handle (directory), (directory-contents)
-                // TODO: Record artifact(s)
                 std::string copy_command{"cp "};
                 copy_command += requisite.text;
                 copy_command += ' ';
                 copy_command += requisite.destination;
                 build_commands.push_back(copy_command);
+                // Record artifact(s)
+                build_commands.artifacts.push_back(requisite.destination);
             } break;
             case Target::Requisite::DEPENDENCY:
                 // FIXME: what compiler to use for dependency.

@@ -289,6 +289,7 @@ struct BuildScenario {
             build_commands.push_back(build_library_command);
         } else {
             printf("ERROR: Unhandled target kind %d in BuildScenario::Commands(), sorry\n", target->kind);
+            exit(1);
         }
 
         return build_commands;

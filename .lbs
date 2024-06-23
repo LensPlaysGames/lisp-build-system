@@ -9,7 +9,7 @@
 (library libtests)
 (include-directories libtests inc)
 (sources libtests lib/tests/tests.cpp)
-(flags libparser -Wall -Wextra -Wpedantic -Werror)
+(flags libtests -Wall -Wextra -Wpedantic -Werror)
 (dependency libtests libparser)
 
 (executable lbs)

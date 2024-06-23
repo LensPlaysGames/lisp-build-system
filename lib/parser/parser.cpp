@@ -133,9 +133,22 @@ auto lex(std::string_view& source) -> Token {
         // Parse list contents (fancy fun LISP tunnels)
         while (source.size() and source.data()[0] != LEX_LIST_END) {
             out.elements.push_back(lex(source));
+            // Since the loop condition checks the current character for being a list
+            // end, we need to advance the current character past all whitespace and
+            // comments after the end of a parsed element, that way we will be "up to"
+            // the list end symbol and the comparison will actually work.
+            while (lex_eat_comments(source) or lex_eat_whitespace(source))
+                ;
         }
+
+        if (source.empty()) {
+            printf("ERROR: Got EOF before list closing symbol %c\n", LEX_LIST_END);
+            exit(1);
+        }
+
         // Eat list closing character.
         source.remove_prefix(1);
+
         return out;
     }
     // Identifier Part Two

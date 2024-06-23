@@ -109,7 +109,7 @@ auto lex(std::string_view& source) -> Token {
     source.remove_prefix(1);
 
     // Identifier
-    if (c == '"') {
+    if (c == LEX_STRING_BEGIN) {
         out.kind = Token::Kind::IDENTIFIER;
         while (source.size() and source.data()[0] != LEX_STRING_END) {
             // Add character that is not the initial string begin or string end symbol

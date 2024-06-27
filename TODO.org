@@ -1,0 +1,15 @@
+* Cross Platform-ness
+BEGAN [2024-06-27 Thu 12:17]
+ENDED ?
+
+Basically, I want a way FOR THE USER to specify Windows command line options, like =/W4 /WX= instead of the normal =-Wall= and friends. However, cross-compilation means we can't just put an =#ifdef _WIN32= in the program; a user on Windows may be building for a Linux host, and vis versa.
+
+So, I think we can keep it simple and still get what we need done in the following way(s). We want to give each compiler a name, and then give a =if-compiler= operator that takes a name and then only inserts it's second argument iff the compiler name matches the one given.
+
+#+begin_example
+(if-compiler msvc
+    (flags /W4 /WX)
+    (flags -Wall -Wextra -Wpedantic -Werror))
+#+end_example
+
+For most cases, I think this would cover it.

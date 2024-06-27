@@ -3,8 +3,10 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include <cnote/build_scenario.h>
 #include <parser/parser.h>
 #include <tests/tests.h>
+#include <tocmake/tocmake.h>
 
 auto get_file_contents_or_exit(const std::string_view path) -> std::string {
     auto f = fopen(path.data(), "rb");
@@ -34,6 +36,7 @@ struct Options {
     bool dry_run{false};
     bool clean_intermediates{true};
     bool just_clean{false};
+    bool tocmake{false};
 };
 
 int main(int argc, const char **argv) {
@@ -54,7 +57,7 @@ int main(int argc, const char **argv) {
                 printf("  -n, --dry-run :: Only print, don't \"do\" anything.\n");
                 printf("  --distclean :: Only delete build artifacts.\n");
                 printf("  --noclean :: Do not delete intermediate files after build is completed.\n");
-
+                printf("  --cmake :: Best effort to generate a CMakeLists.txt from the LISP build system description.\n");
             }
 
             if (arg == "--dry-run" or arg == "-n")
@@ -65,6 +68,9 @@ int main(int argc, const char **argv) {
 
             else if (arg == "--noclean")
                 options.clean_intermediates = false;
+
+            else if (arg == "--cmake")
+                options.tocmake = true;
 
             // NOTE: If you want a target that starts with a dash, you can change
             // these lines yourself :).
@@ -87,6 +93,12 @@ int main(int argc, const char **argv) {
     }
     std::string source = get_file_contents_or_exit(path);
     auto build_scenario = parse(source);
+
+    if (options.tocmake) {
+        std::string cmake = tocmake(build_scenario);
+        std::printf("%s\n", cmake.data());
+        exit(0);
+    }
 
     auto compiler = Compiler{
         "c++ -c %f %d %i -o %o",

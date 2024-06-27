@@ -14,6 +14,12 @@
  (flags -Wall -Wextra -Wpedantic -Werror))
 (dependency libtests libparser)
 
+(library
+ libtocmake
+ (include-directories inc)
+ (sources lib/tocmake/tocmake.cpp)
+ (flags -Wall -Wextra -Wpedantic -Werror))
+
 (executable
  lbs
  (include-directories inc)
@@ -23,3 +29,4 @@
 
 (dependency lbs libparser)
 (dependency lbs libtests)
+(dependency lbs libtocmake)

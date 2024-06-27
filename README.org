@@ -32,3 +32,5 @@ To use the build system, first of all build it. This can be done by bootstrappin
 What you'll see is a command or commands that should look familiar to you if you've compiled a C or C++ project before, along with a few self-explanatory actions like file copies, deletions, etc.
 
 Iff the commands look like something you are okay with running on your system, you can use =./bld/lbs= to run them. If you are in this directory, you will end up with an executable at =./lbs=.
+
+The CLI also offers a best-effort attempt to convert the LISP build system description into a usable =CMakeLists.txt=: just pass =--cmake= and it will print it out instead of doing any building itself.

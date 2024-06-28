@@ -41,7 +41,10 @@ struct Target {
                     printf(" %s", arg.data());
                 break;
             case COPY:
-                printf("copy %s %s", requisite.text.data(), requisite.destination.data());
+                printf(
+                    "copy %s %s", requisite.text.data(),
+                    requisite.destination.data()
+                );
                 break;
             }
         }
@@ -51,19 +54,18 @@ struct Target {
 
     Target() = delete;
 
-    static auto NamedTarget(Target::Kind kind, std::string name)
-        -> Target {
-        return Target {
-            kind, std::move(name), {}, {}, {}, {}, {}, {}
-        };
+    static auto NamedTarget(Target::Kind kind, std::string name) -> Target {
+        return Target{kind, std::move(name), {}, {}, {}, {}, {}, {}};
     }
 
-    static void Print(const Target &target) {
+    static void Print(const Target& target) {
         switch (target.kind) {
         case UNKNOWN: printf("UNKNOWN-KIND TARGET "); break;
         case GENERIC: printf("TARGET "); break;
         case LIBRARY: printf("LIBRARY "); break;
-        case EXECUTABLE: printf("EXECUTABLE "); break;
+        case EXECUTABLE:
+            printf("EXECUTABLE ");
+            break;
             break;
         }
         printf("%s\n", target.name.data());

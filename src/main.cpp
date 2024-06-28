@@ -17,9 +17,9 @@ auto get_file_contents_or_exit(const std::string_view path) -> std::string {
     }
 
     // Get file size.
-    fseek(f, 0, SEEK_END); // seek to end of file
+    fseek(f, 0, SEEK_END);  // seek to end of file
     long file_size = ftell(f);
-    fseek(f, 0, SEEK_SET); // seek to beginning of file
+    fseek(f, 0, SEEK_SET);  // seek to beginning of file
 
     // Allocate string big enough to hold file contents.
     std::string contents;
@@ -40,7 +40,7 @@ struct Options {
     bool tocmake{false};
 };
 
-int main(int argc, const char **argv) {
+int main(int argc, const char** argv) {
 #ifdef LBS_TEST
     tests_run();
 #endif
@@ -52,44 +52,45 @@ int main(int argc, const char **argv) {
             const std::string_view arg{argv[i]};
 
             if (arg.substr(0, 2) == "-h" or arg.substr(0, 3) == "--h") {
+                // clang-format off
                 printf("USAGE: %s [FLAGS] [TARGETS...]\n", argv[0]);
-
                 printf("FLAGS:\n");
                 printf("  -n, --dry-run :: Only print, don't \"do\" anything.\n");
                 printf("  --distclean :: Only delete build artifacts.\n");
-                printf("  --noclean :: Do not delete intermediate files after build is completed.\n");
-                printf("  --cmake :: Best effort to generate a CMakeLists.txt from the LISP build system description.\n");
+                printf("  --noclean :: Do not delete intermediate files after "
+                    "build is completed.\n");
+                printf("  --cmake :: Best effort to generate a CMakeLists.txt "
+                    "from the LISP build system description.\n");
+                // clang-format on
             }
 
-            if (arg == "--dry-run" or arg == "-n")
-                options.dry_run = true;
+            if (arg == "--dry-run" or arg == "-n") options.dry_run = true;
+            else if (arg == "--distclean") options.just_clean = true;
+            else if (arg == "--noclean") options.clean_intermediates = false;
+            else if (arg == "--cmake") options.tocmake = true;
 
-            else if (arg == "--distclean")
-                options.just_clean = true;
-
-            else if (arg == "--noclean")
-                options.clean_intermediates = false;
-
-            else if (arg == "--cmake")
-                options.tocmake = true;
-
-            // NOTE: If you want a target that starts with a dash, you can change
-            // these lines yourself :).
-            else if (arg.size() and arg.data()[0] == '-'){
-                printf("ERROR: Unknown command line argument \"%s\"\n",
-                       arg.data());
+            // NOTE: If you want a target that starts with a dash, you can
+            // change these lines yourself :).
+            else if (arg.size() and arg.data()[0] == '-') {
+                printf(
+                    "ERROR: Unknown command line argument \"%s\"\n", arg.data()
+                );
                 exit(1);
             }
 
             // All other command line arguments treated as targets to build
-            else options.targets_to_build.push_back(std::string{arg});
+            else
+                options.targets_to_build.push_back(std::string{arg});
         }
     }
 
     const char* path = ".lbs";
     if (not std::filesystem::exists(path)) {
         printf("No build file at .lbs found, exiting\n");
-        printf("    To learn how to write one, see https://github.com/LensPlaysGames/lisp-build-system\n");
+        printf(
+            "    To learn how to write one, see "
+            "https://github.com/LensPlaysGames/lisp-build-system\n"
+        );
         return 1;
     }
     std::string source = get_file_contents_or_exit(path);
@@ -118,9 +119,10 @@ int main(int argc, const char **argv) {
                 build_scenario, target_to_build, default_compiler
             ));
     } else {
-        // Attempt to find a single executable target, and build that by default.
+        // Attempt to find a single executable target, and build that by
+        // default.
         const Target* single_executable_target{nullptr};
-        for (const auto &target : build_scenario.targets) {
+        for (const auto& target : build_scenario.targets) {
             if (target.kind == Target::Kind::EXECUTABLE) {
                 if (single_executable_target) {
                     single_executable_target = nullptr;
@@ -130,7 +132,10 @@ int main(int argc, const char **argv) {
             }
         }
         if (not single_executable_target) {
-            printf("ERROR: No targets provided on command line and a single executable target was not found to build by default\n");
+            printf(
+                "ERROR: No targets provided on command line and a single "
+                "executable target was not found to build by default\n"
+            );
             exit(1);
         }
         // TODO: Get compiler from target, if specified. Otherwise use default.
@@ -149,7 +154,7 @@ int main(int argc, const char **argv) {
     }
 
     // Execute build commands.
-    for (const auto &command : build_commands.commands) {
+    for (const auto& command : build_commands.commands) {
         if (options.dry_run) {
             printf("%s\n", command.data());
         } else {
@@ -157,7 +162,10 @@ int main(int argc, const char **argv) {
             // Use system() from libc to run build commands.
             auto rc = std::system(command.data());
             if (rc) {
-                printf("[BUILD]:ERROR: command failed with status %d\n    %s\n", int(rc), command.data());
+                printf(
+                    "[BUILD]:ERROR: command failed with status %d\n    %s\n",
+                    int(rc), command.data()
+                );
                 break;
             }
         }
@@ -167,11 +175,10 @@ int main(int argc, const char **argv) {
     // While this isn't guaranteed to work, it's pretty damn close.
     if (options.clean_intermediates) {
         for (auto it = build_commands.artifacts.begin();
-             it != build_commands.artifacts.end() and
-             it != build_commands.artifacts.end() - 1;
+             it != build_commands.artifacts.end()
+             and it != build_commands.artifacts.end() - 1;
              ++it) {
-            if (options.dry_run)
-                printf("REMOVE ARTIFACT at %s\n", it->data());
+            if (options.dry_run) printf("REMOVE ARTIFACT at %s\n", it->data());
             else std::remove(it->data());
         }
     }

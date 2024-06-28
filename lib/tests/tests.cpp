@@ -4,8 +4,8 @@
 #include <cstdio>
 
 struct TestReturnValue {
-  bool success{};
-  std::string error{};
+    bool success{};
+    std::string error{};
 };
 
 using TestFunctionType = const TestReturnValue (*)();
@@ -17,10 +17,10 @@ struct TestFunction {
 
 /// ==BEGIN== PARSER TESTS
 auto test_libparser_empty() -> const TestReturnValue {
-  auto build_scenario = parse("");
-  // For now, the parser exit(1)'s upon any problems, so if we get here we
-  // are good.
-  return {true};
+    auto build_scenario = parse("");
+    // For now, the parser exit(1)'s upon any problems, so if we get here we
+    // are good.
+    return {true};
 }
 // TODO: To better write more tests, we need to not just exit(1) when the
 // parser errors and instead return a meaningful error value. This is
@@ -34,7 +34,7 @@ void tests_run() {
     };
     size_t failed{0};
     size_t succeeded{0};
-    for (const auto &test : tests) {
+    for (const auto& test : tests) {
         auto ret = test.function();
         if (ret.success) {
             ++succeeded;

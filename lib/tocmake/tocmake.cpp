@@ -2,8 +2,8 @@
 
 #include <cstdio>
 
-#include <cnote/target.h>
 #include <cnote/build_scenario.h>
+#include <cnote/target.h>
 
 std::string tocmake_target(const Target& target) {
     std::string out{};

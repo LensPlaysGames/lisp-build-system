@@ -1,12 +1,13 @@
+#include <parser/parser.h>
+
 #include <algorithm>
 #include <cctype>
 #include <format>
 #include <string>
 #include <string_view>
 #include <vector>
-#include <parser/parser.h>
 
-template <typename ContainerT, size_t begin_index>
+template<typename ContainerT, size_t begin_index>
 struct IteratePastHelper {
     const ContainerT& container;
     auto begin() { return container.begin() + begin_index; }
@@ -25,20 +26,12 @@ struct Token {
     std::string identifier;
     std::vector<Token> elements;
 
-    static auto eof() -> Token {
-        return {
-            Token::Kind::EOF_, "", {}
-        };
-    }
+    static auto eof() -> Token { return {Token::Kind::EOF_, "", {}}; }
 
     static void Print(const Token& token) {
         switch (token.kind) {
-        case UNKNOWN:
-            printf("Unknown");
-            break;
-        case EOF_:
-            printf("EOF");
-            break;
+        case UNKNOWN: printf("Unknown"); break;
+        case EOF_: printf("EOF"); break;
         case LIST: {
             printf("(");
             bool notfirst = false;
@@ -49,36 +42,33 @@ struct Token {
             }
             printf(")");
         } break;
-        case IDENTIFIER:
-            printf("ID:\"%s\"", token.identifier.data());
-            break;
+        case IDENTIFIER: printf("ID:\"%s\"", token.identifier.data()); break;
         }
     }
 };
 
-constexpr bool token_is_eof(const Token &token) {
+constexpr bool token_is_eof(const Token& token) {
     return token.kind == Token::Kind::EOF_;
 }
-constexpr bool token_is_list(const Token &token) {
+constexpr bool token_is_list(const Token& token) {
     return token.kind == Token::Kind::LIST;
 }
-constexpr bool token_is_identifier(const Token &token) {
+constexpr bool token_is_identifier(const Token& token) {
     return token.kind == Token::Kind::IDENTIFIER;
 }
 
 #define LEX_LIST_BEGIN '('
-#define LEX_LIST_END   ')'
+#define LEX_LIST_END ')'
 #define LEX_LINE_COMMENT_BEGIN ';'
 #define LEX_STRING_BEGIN '"'
-#define LEX_STRING_END   '"'
+#define LEX_STRING_END '"'
 
 bool isdelimiter(const char c) {
-    return c == LEX_LIST_BEGIN
-           or c == LEX_LIST_END
-           or c == LEX_LINE_COMMENT_BEGIN;
+    return c == LEX_LIST_BEGIN or c == LEX_LIST_END
+        or c == LEX_LINE_COMMENT_BEGIN;
 }
 
-bool lex_eat_comments(std::string_view &source) {
+bool lex_eat_comments(std::string_view& source) {
     bool ret{false};
     while (source.size() and source.data()[0] == LEX_LINE_COMMENT_BEGIN) {
         ret = true;
@@ -92,7 +82,7 @@ bool lex_eat_comments(std::string_view &source) {
 }
 
 // Returns true iff whitespace was eaten.
-bool lex_eat_whitespace(std::string_view &source) {
+bool lex_eat_whitespace(std::string_view& source) {
     bool ret{false};
     while (source.size() and isspace(source.data()[0])) {
         ret = true;
@@ -119,15 +109,18 @@ auto lex(std::string_view& source) -> Token {
     if (c == LEX_STRING_BEGIN) {
         out.kind = Token::Kind::IDENTIFIER;
         while (source.size() and source.data()[0] != LEX_STRING_END) {
-            // Add character that is not the initial string begin or string end symbol
-            // to the string contents.
+            // Add character that is not the initial string begin or string end
+            // symbol to the string contents.
             out.identifier += source.data()[0];
             // Now eat it.
             source.remove_prefix(1);
         }
         // Handle "open string then EOF" case
         if (source.empty()) {
-            printf("ERROR: Got EOF before string closing symbol %c\n", LEX_STRING_END);
+            printf(
+                "ERROR: Got EOF before string closing symbol %c\n",
+                LEX_STRING_END
+            );
             exit(1);
         }
         // Eat string end symbol.
@@ -140,16 +133,19 @@ auto lex(std::string_view& source) -> Token {
         // Parse list contents (fancy fun LISP tunnels)
         while (source.size() and source.data()[0] != LEX_LIST_END) {
             out.elements.push_back(lex(source));
-            // Since the loop condition checks the current character for being a list
-            // end, we need to advance the current character past all whitespace and
-            // comments after the end of a parsed element, that way we will be "up to"
-            // the list end symbol and the comparison will actually work.
+            // Since the loop condition checks the current character for being a
+            // list end, we need to advance the current character past all
+            // whitespace and comments after the end of a parsed element, that
+            // way we will be "up to" the list end symbol and the comparison
+            // will actually work.
             while (lex_eat_comments(source) or lex_eat_whitespace(source))
                 ;
         }
 
         if (source.empty()) {
-            printf("ERROR: Got EOF before list closing symbol %c\n", LEX_LIST_END);
+            printf(
+                "ERROR: Got EOF before list closing symbol %c\n", LEX_LIST_END
+            );
             exit(1);
         }
 
@@ -164,7 +160,8 @@ auto lex(std::string_view& source) -> Token {
         // lex identifier
         out.identifier = std::string{c};
         // Until character is whitespace or delimiter...
-        while (not isspace(source.data()[0]) and not isdelimiter(source.data()[0])) {
+        while (not isspace(source.data()[0])
+               and not isdelimiter(source.data()[0])) {
             // Add character to identifier.
             out.identifier += source.data()[0];
             // Now eat it.
@@ -192,49 +189,63 @@ auto parse(std::string_view source) -> BuildScenario {
     while (source.size()) {
         auto token = lex(source);
 
-        //Token::Print(token);
-        //printf("\n");
+        // Token::Print(token);
+        // printf("\n");
 
-        if (token_is_eof(token))
-            break;
+        if (token_is_eof(token)) break;
         if (not token_is_list(token)) {
-            printf("ERROR: Unexpected token at top level; this is LISP, so use lists!\n");
+            printf(
+                "ERROR: Unexpected token at top level; this is LISP, so use "
+                "lists!\n"
+            );
             exit(1);
         }
 
         // First element of list should be an identifier that will help us to
         // parse this meaningfully into the build scenario.
-        if (token.elements.empty() or not token_is_identifier(token.elements[0])) {
-            printf("ERROR: Expected identifier in operator position of top level list!\n");
+        if (token.elements.empty()
+            or not token_is_identifier(token.elements[0])) {
+            printf(
+                "ERROR: Expected identifier in operator position of top level "
+                "list!\n"
+            );
             exit(1);
         }
         const auto identifier = token.elements[0].identifier;
 
         // TARGET CREATION
         // "executable", "library", "target"
-        if (identifier == "executable" or identifier == "library" or identifier == "target") {
+        if (identifier == "executable" or identifier == "library"
+            or identifier == "target") {
             // Ensure second element is an identifier.
-            if (token.elements.size() < 2 or
-                not token_is_identifier(token.elements[1])) {
+            if (token.elements.size() < 2
+                or not token_is_identifier(token.elements[1])) {
                 printf("ERROR: Second element must be an identifier");
                 exit(1);
             }
             std::string name = token.elements[1].identifier;
 
             // Ensure name doesn't already refer to an existing target.
-            for (const auto &target : build_scenario.targets) {
+            for (const auto& target : build_scenario.targets) {
                 if (name == target.name) {
-                    printf("ERROR: Targets must not share a name (hint: %s)\n", name.data());
+                    printf(
+                        "ERROR: Targets must not share a name (hint: %s)\n",
+                        name.data()
+                    );
                     exit(1);
                 }
             }
 
             Target::Kind t_kind{};
             if (identifier == "target") t_kind = Target::Kind::GENERIC;
-            else if (identifier == "executable") t_kind = Target::Kind::EXECUTABLE;
+            else if (identifier == "executable")
+                t_kind = Target::Kind::EXECUTABLE;
             else if (identifier == "library") t_kind = Target::Kind::LIBRARY;
             else {
-                printf("ERROR: Unhandled target creation identifier %s\n", identifier.data());
+                printf(
+                    "ERROR: Unhandled target creation identifier %s\n",
+                    identifier.data()
+                );
                 exit(1);
             }
 
@@ -242,95 +253,132 @@ auto parse(std::string_view source) -> BuildScenario {
             build_scenario.targets.push_back(Target::NamedTarget(t_kind, name));
 
             // Parse auto-target forms within body (elements past target name)
-            // i.e. instead of (sources foo foo.c) it could be (executable foo (sources foo.c))
+            // i.e. instead of (sources foo foo.c) it could be (executable foo
+            // (sources foo.c))
             auto target = build_scenario.target(name);
 
-            IteratePastHelper<typeof token.elements, 2> it_helper{token.elements};
+            IteratePastHelper<typeof token.elements, 2> it_helper{
+                token.elements};
             for (const auto& subtoken : it_helper) {
-
                 if (not token_is_list(subtoken)) {
-                    printf("ERROR: Expected list at top level within target "
-                           "creation body (target %s)\n",
-                           name.data());
+                    printf(
+                        "ERROR: Expected list at top level within target "
+                        "creation body (target %s)\n",
+                        name.data()
+                    );
                     exit(1);
                 }
 
                 if (not token_is_identifier(subtoken.elements[0])) {
-                    printf("ERROR: Expected identifier in operator position of list within target creation body!\n");
+                    printf(
+                        "ERROR: Expected identifier in operator position of "
+                        "list within target creation body!\n"
+                    );
                     exit(1);
                 }
                 auto identifier = subtoken.elements[0].identifier;
 
                 if (identifier == "sources") {
-                    if (target->kind != Target::Kind::EXECUTABLE and
-                        target->kind != Target::Kind::LIBRARY) {
-                        printf("ERROR: %s is only applicable to executable and "
-                               "library targets",
-                               identifier.data());
+                    if (target->kind != Target::Kind::EXECUTABLE
+                        and target->kind != Target::Kind::LIBRARY) {
+                        printf(
+                            "ERROR: %s is only applicable to executable and "
+                            "library targets",
+                            identifier.data()
+                        );
                         exit(1);
                     }
-                    // Iterate all elements past operator position (first position).
-                    IteratePastHelper<typeof subtoken.elements, 1> it_helper{subtoken.elements};
+                    // Iterate all elements past operator position (first
+                    // position).
+                    IteratePastHelper<typeof subtoken.elements, 1> it_helper{
+                        subtoken.elements};
                     for (const auto& source : it_helper) {
                         // TODO: Handle (directory-contents)
                         if (not token_is_identifier(source)) {
-                            printf("ERROR: Sources must be an identifier (just a file path)\n");
+                            printf(
+                                "ERROR: Sources must be an identifier (just a "
+                                "file path)\n"
+                            );
                             exit(1);
                         }
                         target->sources.push_back(source.identifier);
                     }
                 } else if (identifier == "include-directories") {
-                    if (target->kind != Target::Kind::EXECUTABLE and
-                        target->kind != Target::Kind::LIBRARY) {
-                        printf("ERROR: %s is only applicable to executable and "
-                               "library targets",
-                               identifier.data());
+                    if (target->kind != Target::Kind::EXECUTABLE
+                        and target->kind != Target::Kind::LIBRARY) {
+                        printf(
+                            "ERROR: %s is only applicable to executable and "
+                            "library targets",
+                            identifier.data()
+                        );
                         exit(1);
                     }
-                    IteratePastHelper<typeof subtoken.elements, 1> it_helper{subtoken.elements};
+                    IteratePastHelper<typeof subtoken.elements, 1> it_helper{
+                        subtoken.elements};
                     for (const auto& include_dir : it_helper) {
                         if (not token_is_identifier(include_dir)) {
-                            printf("ERROR: Sources must be an identifier (just a file path)\n");
+                            printf(
+                                "ERROR: Sources must be an identifier (just a "
+                                "file path)\n"
+                            );
                             exit(1);
                         }
-                        target->include_directories.push_back(include_dir.identifier);
+                        target->include_directories.push_back(
+                            include_dir.identifier
+                        );
                     }
                 } else if (identifier == "flags") {
-                    if (target->kind != Target::Kind::EXECUTABLE and
-                        target->kind != Target::Kind::LIBRARY) {
-                        printf("ERROR: %s is only applicable to executable and "
-                               "library targets",
-                               identifier.data());
+                    if (target->kind != Target::Kind::EXECUTABLE
+                        and target->kind != Target::Kind::LIBRARY) {
+                        printf(
+                            "ERROR: %s is only applicable to executable and "
+                            "library targets",
+                            identifier.data()
+                        );
                         exit(1);
                     }
                     // Iterate all elements past operator position.
-                    IteratePastHelper<typeof subtoken.elements, 1> it_helper{subtoken.elements};
+                    IteratePastHelper<typeof subtoken.elements, 1> it_helper{
+                        subtoken.elements};
                     for (const auto& flag : it_helper) {
                         if (not token_is_identifier(flag)) {
-                            printf("ERROR: Sources must be an identifier (just a file path)\n");
+                            printf(
+                                "ERROR: Sources must be an identifier (just a "
+                                "file path)\n"
+                            );
                             exit(1);
                         }
                         target->flags.push_back(flag.identifier);
                     }
                 } else if (identifier == "defines") {
-                    if (target->kind != Target::Kind::EXECUTABLE and
-                        target->kind != Target::Kind::LIBRARY) {
-                        printf("ERROR: %s is only applicable to executable and "
-                               "library targets",
-                               identifier.data());
+                    if (target->kind != Target::Kind::EXECUTABLE
+                        and target->kind != Target::Kind::LIBRARY) {
+                        printf(
+                            "ERROR: %s is only applicable to executable and "
+                            "library targets",
+                            identifier.data()
+                        );
                         exit(1);
                     }
                     // Iterate all elements past operator position.
-                    IteratePastHelper<typeof subtoken.elements, 1> it_helper{subtoken.elements};
+                    IteratePastHelper<typeof subtoken.elements, 1> it_helper{
+                        subtoken.elements};
                     for (const auto& define : it_helper) {
                         if (not token_is_identifier(define)) {
-                            printf("ERROR: Sources must be an identifier (just a file path)\n");
+                            printf(
+                                "ERROR: Sources must be an identifier (just a "
+                                "file path)\n"
+                            );
                             exit(1);
                         }
                         target->defines.push_back(define.identifier);
                     }
                 } else {
-                    printf("ERROR: Unrecognized operator %s within target creation body\n", identifier.data());
+                    printf(
+                        "ERROR: Unrecognized operator %s within target "
+                        "creation body\n",
+                        identifier.data()
+                    );
                     exit(1);
                 }
             }
@@ -342,37 +390,45 @@ auto parse(std::string_view source) -> BuildScenario {
         // "sources", "include-directories", "defines", "flags" for executables and libraries
         else if (identifier == "sources" or identifier == "include-directories" or identifier == "flags" or identifier == "defines") {
             // Ensure second element is an identifier.
-            if (token.elements.size() < 2 or
-                not token_is_identifier(token.elements[1])) {
+            if (token.elements.size() < 2
+                or not token_is_identifier(token.elements[1])) {
                 printf("ERROR: Second element must be an identifier");
                 exit(1);
             }
             std::string name = token.elements[1].identifier;
-            // Ensure that identifier that refers to an existing target, and get a
-            // reference to that target so we can add a few details.
+            // Ensure that identifier that refers to an existing target, and get
+            // a reference to that target so we can add a few details.
             auto target = build_scenario.target(name);
             if (target == build_scenario.targets.end()) {
-                printf("ERROR: Second element must refer to an existing target "
-                       "(which \"%s\" does not)\n",
-                       name.data());
+                printf(
+                    "ERROR: Second element must refer to an existing target "
+                    "(which \"%s\" does not)\n",
+                    name.data()
+                );
                 exit(1);
             }
-            if (target->kind != Target::Kind::EXECUTABLE and
-                target->kind != Target::Kind::LIBRARY) {
-                printf("ERROR: %s is only applicable to executable and library "
-                       "targets",
-                       identifier.data());
+            if (target->kind != Target::Kind::EXECUTABLE
+                and target->kind != Target::Kind::LIBRARY) {
+                printf(
+                    "ERROR: %s is only applicable to executable and library "
+                    "targets",
+                    identifier.data()
+                );
                 exit(1);
             }
 
             // Register sources in target
             if (identifier == "sources") {
                 // Begin iterating all elements past target name.
-                IteratePastHelper<typeof token.elements, 2> it_helper{token.elements};
+                IteratePastHelper<typeof token.elements, 2> it_helper{
+                    token.elements};
                 for (const auto& source : it_helper) {
                     // TODO: Handle (directory-contents)
                     if (not token_is_identifier(source)) {
-                        printf("ERROR: Sources must be an identifier (just a file path)\n");
+                        printf(
+                            "ERROR: Sources must be an identifier (just a file "
+                            "path)\n"
+                        );
                         exit(1);
                     }
                     target->sources.push_back(source.identifier);
@@ -382,20 +438,26 @@ auto parse(std::string_view source) -> BuildScenario {
             // Register include directories in target
             else if (identifier == "include-directories") {
                 // Begin iterating all elements past target name.
-                IteratePastHelper<typeof token.elements, 2> it_helper{token.elements};
+                IteratePastHelper<typeof token.elements, 2> it_helper{
+                    token.elements};
                 for (const auto& include_dir : it_helper) {
                     // TODO: Handle (directory-contents)
                     if (not token_is_identifier(include_dir)) {
-                        printf("ERROR: Include directories must be an identifier (just a file path)\n");
+                        printf(
+                            "ERROR: Include directories must be an identifier "
+                            "(just a file path)\n"
+                        );
                         exit(1);
                     }
-                    target->include_directories.push_back(include_dir.identifier);
+                    target->include_directories.push_back(include_dir.identifier
+                    );
                 }
             }
 
             else if (identifier == "defines") {
                 // Begin iterating all elements past target name.
-                IteratePastHelper<typeof token.elements, 2> it_helper{token.elements};
+                IteratePastHelper<typeof token.elements, 2> it_helper{
+                    token.elements};
                 for (const auto& define : it_helper) {
                     if (not token_is_identifier(define)) {
                         printf("ERROR: Defines must be identifiers\n");
@@ -407,7 +469,8 @@ auto parse(std::string_view source) -> BuildScenario {
 
             else if (identifier == "flags") {
                 // Begin iterating all elements past target name.
-                IteratePastHelper<typeof token.elements, 2> it_helper{token.elements};
+                IteratePastHelper<typeof token.elements, 2> it_helper{
+                    token.elements};
                 for (const auto& flag : it_helper) {
                     if (not token_is_identifier(flag)) {
                         printf("ERROR: Flags must be identifiers\n");
@@ -418,9 +481,11 @@ auto parse(std::string_view source) -> BuildScenario {
             }
 
             else {
-                printf("ERROR: Unhandled target related operator %s. Likely an "
-                       "internal error, sorry.\n",
-                       identifier.data());
+                printf(
+                    "ERROR: Unhandled target related operator %s. Likely an "
+                    "internal error, sorry.\n",
+                    identifier.data()
+                );
                 exit(1);
             }
 
@@ -431,19 +496,21 @@ auto parse(std::string_view source) -> BuildScenario {
         // "command", "copy", "dependency"
         else if (identifier == "command" or identifier == "copy" or identifier == "dependency") {
             // Ensure second element is an identifier.
-            if (token.elements.size() < 2 or
-                not token_is_identifier(token.elements[1])) {
+            if (token.elements.size() < 2
+                or not token_is_identifier(token.elements[1])) {
                 printf("ERROR: Second element must be an identifier");
                 exit(1);
             }
             std::string name = token.elements[1].identifier;
-            // Ensure that identifier that refers to an existing target, and get a
-            // reference to that target so we can add a few details.
+            // Ensure that identifier that refers to an existing target, and get
+            // a reference to that target so we can add a few details.
             auto target = build_scenario.target(name);
             if (target == build_scenario.targets.end()) {
-                printf("ERROR: Second element must refer to an existing target "
-                       "(which \"%s\" does not)\n",
-                       name.data());
+                printf(
+                    "ERROR: Second element must refer to an existing target "
+                    "(which \"%s\" does not)\n",
+                    name.data()
+                );
                 exit(1);
             }
 
@@ -452,48 +519,65 @@ auto parse(std::string_view source) -> BuildScenario {
                 requisite.kind = Target::Requisite::Kind::COMMAND;
                 // Ensure third element is an identifier.
                 if (not token_is_identifier(token.elements[2])) {
-                    printf("ERROR: command (after target name) must be an identifier\n");
+                    printf(
+                        "ERROR: command (after target name) must be an "
+                        "identifier\n"
+                    );
                     exit(1);
                 }
                 requisite.text = token.elements[2].identifier;
                 // Begin iterating all elements past target name and command.
-                IteratePastHelper<typeof token.elements, 3> it_helper{token.elements};
+                IteratePastHelper<typeof token.elements, 3> it_helper{
+                    token.elements};
                 for (const auto& arg : it_helper) {
                     // TODO: Handle (directory-contents)
                     if (not token_is_identifier(arg)) {
-                        printf("ERROR: command arguments must be an identifier\n");
+                        printf(
+                            "ERROR: command arguments must be an identifier\n"
+                        );
                         exit(1);
                     }
                     requisite.arguments.push_back(arg.identifier);
                 }
-            }
-            else if (identifier == "copy") {
+            } else if (identifier == "copy") {
                 requisite.kind = Target::Requisite::Kind::COPY;
                 // TODO: Handle (directory ...), (directory-contents ...)
                 // Ensure third element is an identifier.
                 if (not token_is_identifier(token.elements[2])) {
-                    printf("ERROR: copy source argument must be an identifier for now, sorry\n");
+                    printf(
+                        "ERROR: copy source argument must be an identifier for "
+                        "now, sorry\n"
+                    );
                     exit(1);
                 }
                 requisite.text = token.elements[2].identifier;
                 // Ensure fourth element is an identifier.
                 if (not token_is_identifier(token.elements[3])) {
-                    printf("ERROR: copy destination argument must be an identifier for now, sorry\n");
+                    printf(
+                        "ERROR: copy destination argument must be an "
+                        "identifier for now, sorry\n"
+                    );
                     exit(1);
                 }
                 requisite.text = token.elements[3].identifier;
-            }
-            else if (identifier == "dependency") {
+            } else if (identifier == "dependency") {
                 requisite.kind = Target::Requisite::Kind::DEPENDENCY;
                 // Ensure third element is an identifier.
                 if (not token_is_identifier(token.elements[2])) {
-                    printf("ERROR: dependency target name must be an identifier\n");
+                    printf(
+                        "ERROR: dependency target name must be an identifier\n"
+                    );
                     exit(1);
                 }
                 // Ensure that identifier refers to an existing target.
-                auto dep_target = build_scenario.target(token.elements[2].identifier);
+                auto dep_target =
+                    build_scenario.target(token.elements[2].identifier);
                 if (dep_target == build_scenario.targets.end()) {
-                    printf("ERROR: dependency on target %s but that target doesn't exist\n", token.elements[2].identifier.data());
+                    printf(
+                        "ERROR: dependency on target %s but that target "
+                        "doesn't exist\n",
+                        token.elements[2].identifier.data()
+                    );
                     exit(1);
                 }
 
@@ -509,6 +593,6 @@ auto parse(std::string_view source) -> BuildScenario {
             continue;
         }
     }
-    //BuildScenario::Print(build_scenario);
+    // BuildScenario::Print(build_scenario);
     return build_scenario;
 }

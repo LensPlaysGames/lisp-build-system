@@ -1,9 +1,10 @@
-#include <string>
-#include <filesystem>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
+#include <string>
 
 #include <cnote/build_scenario.h>
+#include <cnote/compiler.h>
 #include <parser/parser.h>
 #include <tests/tests.h>
 #include <tocmake/tocmake.h>
@@ -100,17 +101,22 @@ int main(int argc, const char **argv) {
         exit(0);
     }
 
-    auto compiler = Compiler{
-        "c++ -c %f %d %i -o %o",
-        "c++ %f %d %i -o %o"
-    };
+    const std::string_view default_compiler = "cpp";
+
+    build_scenario.compilers.push_back(Compiler{
+        "c", "cc -c %f %d %i -o %o", "cc %f %d %i -o %o"});
+
+    build_scenario.compilers.push_back(Compiler{
+        "cpp", "c++ -c %f %d %i -o %o", "c++ %f %d %i -o %o"});
 
     BuildScenario::BuildCommands build_commands{};
 
     std::string target_to_build{""};
     if (options.targets_to_build.size()) {
-        for (const auto &target_to_build : options.targets_to_build)
-            build_commands.push_back(BuildScenario::Commands(build_scenario, target_to_build, compiler));
+        for (const auto& target_to_build : options.targets_to_build)
+            build_commands.push_back(BuildScenario::Commands(
+                build_scenario, target_to_build, default_compiler
+            ));
     } else {
         // Attempt to find a single executable target, and build that by default.
         const Target* single_executable_target{nullptr};
@@ -127,7 +133,10 @@ int main(int argc, const char **argv) {
             printf("ERROR: No targets provided on command line and a single executable target was not found to build by default\n");
             exit(1);
         }
-        build_commands.push_back(BuildScenario::Commands(build_scenario, single_executable_target->name, compiler));
+        // TODO: Get compiler from target, if specified. Otherwise use default.
+        build_commands.push_back(BuildScenario::Commands(
+            build_scenario, single_executable_target->name, default_compiler
+        ));
     }
 
     if (options.just_clean) {

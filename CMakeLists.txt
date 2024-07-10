@@ -13,9 +13,13 @@ add_library(libtests lib/tests/tests.cpp)
 target_include_directories(libparser PUBLIC inc)
 target_link_libraries(libtests libparser)
 
+add_library(libtocmake lib/tocmake/tocmake.cpp)
+target_include_directories(libtocmake PUBLIC inc)
+
 add_executable(lbs src/main.cpp)
 target_include_directories(lbs PUBLIC inc)
 target_link_libraries(lbs libparser)
+target_link_libraries(lbs libtocmake)
 
 target_compile_options(lbs PRIVATE
   $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>

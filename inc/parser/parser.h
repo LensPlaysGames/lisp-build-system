@@ -7,8 +7,8 @@
 #include <string_view>
 #include <vector>
 
-#include <cnote/build_scenario.h>
-#include <cnote/target.h>
+#include <lbs/build_scenario.h>
+#include <lbs/target.h>
 
 auto parse(std::string_view source) -> BuildScenario;
 

@@ -7,8 +7,8 @@
 #include <string_view>
 #include <vector>
 
-#include <cnote/compiler.h>
-#include <cnote/target.h>
+#include <lbs/compiler.h>
+#include <lbs/target.h>
 
 struct BuildScenario {
     std::vector<Compiler> compilers;
@@ -157,10 +157,11 @@ struct BuildScenario {
             // Record artifact(s)
             build_commands.artifacts.push_back(std::string(target_name));
 
+            // FIXME: Libraries with multiple sources work a little differently
             auto build_command = expand_compiler_format(
                 target->kind == Target::Kind::EXECUTABLE
                     ? compiler->executable_template
-                    : compiler->library_template,
+                    : compiler->object_template,
                 *target
             );
 

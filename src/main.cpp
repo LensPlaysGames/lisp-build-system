@@ -3,8 +3,8 @@
 #include <filesystem>
 #include <string>
 
-#include <cnote/build_scenario.h>
-#include <cnote/compiler.h>
+#include <lbs/build_scenario.h>
+#include <lbs/compiler.h>
 #include <parser/parser.h>
 #include <tests/tests.h>
 #include <tocmake/tocmake.h>

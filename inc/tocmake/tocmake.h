@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include <cnote/build_scenario.h>
+#include <lbs/build_scenario.h>
 
 std::string tocmake(const BuildScenario& build_scenario);
 

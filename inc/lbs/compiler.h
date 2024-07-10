@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include <cnote/target.h>
+#include <lbs/target.h>
 
 // Compiler:
 // - Object Compilation Template with %o (output filename) and %i
@@ -16,11 +16,11 @@
 // build commands.
 struct Compiler {
     const std::string name;
-    const std::string library_template{};
+    const std::string object_template{};
     const std::string executable_template{};
 };
 
-// FIXME: We should move this to lib/cnote/compiler.cpp, or something...
+// FIXME: We should move this to lib/lbs/compiler.cpp, or something...
 // For now it's static.
 static auto expand_compiler_format(std::string format, const Target& target)
     -> std::string {

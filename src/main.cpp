@@ -38,6 +38,7 @@ struct Options {
     bool clean_intermediates{true};
     bool just_clean{false};
     bool tocmake{false};
+    unsigned short verbose{false};
 };
 
 int main(int argc, const char** argv) {
@@ -68,6 +69,7 @@ int main(int argc, const char** argv) {
             else if (arg == "--distclean") options.just_clean = true;
             else if (arg == "--noclean") options.clean_intermediates = false;
             else if (arg == "--cmake") options.tocmake = true;
+            else if (arg == "--verbose" or arg == "-v") options.verbose = true;
 
             // NOTE: If you want a target that starts with a dash, you can
             // change these lines yourself :).
@@ -105,10 +107,13 @@ int main(int argc, const char** argv) {
     const std::string_view default_compiler = "cpp";
 
     build_scenario.compilers.push_back(Compiler{
-        "c", "cc -c %f %d %i -o %o", "cc %f %d %i -o %o"});
+        "c", "cc -c %f %d %i -o %o", "ar crs %o %i", "cc %f %d %i -o %o"});
 
     build_scenario.compilers.push_back(Compiler{
-        "cpp", "c++ -c %f %d %i -o %o", "c++ %f %d %i -o %o"});
+        "cpp", "c++ -c %f %d %i -o %o", "ar crs %o %i", "c++ %f %d %i -o %o"});
+
+    build_scenario.compilers.push_back(Compiler{
+        "lcc", "lcc %f %d %i -o %o", "ar crs %o %i", "cc %f %d %i -o %o"});
 
     BuildScenario::BuildCommands build_commands{};
 
@@ -147,7 +152,7 @@ int main(int argc, const char** argv) {
     if (options.just_clean) {
         for (auto artifact : build_commands.artifacts) {
             if (options.dry_run)
-                printf("REMOVE ARTIFACT at %s\n", artifact.data());
+                printf("[DRY]:[REMOVE ARTIFACT]: %s\n", artifact.data());
             else std::remove(artifact.data());
         }
         return 0;
@@ -156,8 +161,9 @@ int main(int argc, const char** argv) {
     // Execute build commands.
     for (const auto& command : build_commands.commands) {
         if (options.dry_run) {
-            printf("%s\n", command.data());
+            printf("[DRY]:[RUN]: %s\n", command.data());
         } else {
+            if (options.verbose) printf("[RUN]: %s\n", command.data());
             // THIS IS NOT A FIRE DRILL THIS IS THE REAL DEAL
             // Use system() from libc to run build commands.
             auto rc = std::system(command.data());
@@ -178,7 +184,9 @@ int main(int argc, const char** argv) {
              it != build_commands.artifacts.end()
              and it != build_commands.artifacts.end() - 1;
              ++it) {
-            if (options.dry_run) printf("REMOVE ARTIFACT at %s\n", it->data());
+            if (options.verbose) printf("[REMOVE ARTIFACT]: %s\n", it->data());
+            if (options.dry_run)
+                printf("[DRY]:[REMOVE ARTIFACT]: %s\n", it->data());
             else std::remove(it->data());
         }
     }

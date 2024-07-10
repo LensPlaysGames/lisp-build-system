@@ -154,32 +154,57 @@ struct BuildScenario {
         }
         if (target->kind == Target::Kind::EXECUTABLE
             or target->kind == Target::Kind::LIBRARY) {
-            // Record artifact(s)
-            build_commands.artifacts.push_back(std::string(target_name));
+            std::vector<std::string> object_outputs{};
+            for (auto source : target->sources) {
+                auto object_path = object_output_from_source_path(source);
+                object_outputs.push_back(object_path);
+                // Record object artifact
+                build_commands.artifacts.push_back(object_path);
+                auto object_build_command = expand_compiler_object_format(
+                    compiler->object_template, source, object_path, *target
+                );
 
-            // FIXME: Libraries with multiple sources work a little differently
-            auto build_command = expand_compiler_format(
-                target->kind == Target::Kind::EXECUTABLE
-                    ? compiler->executable_template
-                    : compiler->object_template,
-                *target
-            );
+                // Include directories.
+                for (const auto& include_dir : target->include_directories) {
+                    object_build_command += " -I";
+                    object_build_command += include_dir;
+                }
 
-            // Include directories.
-            for (const auto& include_dir : target->include_directories) {
-                build_command += " -I";
-                build_command += include_dir;
+                build_commands.push_back(object_build_command);
             }
 
-            // Linked libraries.
+            // Create archive
+            auto archive_path = archive_output_from_target_name(target_name);
+            auto archive_build_command = expand_compiler_archive_format(
+                compiler->archive_template, object_outputs, archive_path
+            );
+            // Record archive artifact
+            build_commands.artifacts.push_back(archive_path);
+            build_commands.push_back(archive_build_command);
+
             if (target->kind == Target::Kind::EXECUTABLE) {
+                // Record artifact(s)
+                build_commands.artifacts.push_back(std::string(target_name));
+
+                auto build_command = expand_compiler_executable_format(
+                    compiler->executable_template, *target
+                );
+
+                // Include directories.
+                for (const auto& include_dir : target->include_directories) {
+                    build_command += " -I";
+                    build_command += include_dir;
+                }
+
+                // Linked libraries.
                 for (const auto& library_name : target->linked_libraries) {
                     build_command += ' ';
-                    build_command += library_name;
+                    build_command +=
+                        archive_output_from_target_name(library_name);
                 }
-            }
 
-            build_commands.push_back(build_command);
+                build_commands.push_back(build_command);
+            }
         } else {
             printf(
                 "ERROR: Unhandled target kind %d in BuildScenario::Commands(), "

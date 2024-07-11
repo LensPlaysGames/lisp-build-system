@@ -17,7 +17,7 @@ struct TestFunction {
 
 /// ==BEGIN== PARSER TESTS
 auto test_libparser_empty() -> const TestReturnValue {
-    auto build_scenario = parse("");
+    auto build_scenario = parse("", "");
     // For now, the parser exit(1)'s upon any problems, so if we get here we
     // are good.
     return {true};

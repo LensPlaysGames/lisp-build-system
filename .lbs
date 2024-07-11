@@ -1,6 +1,9 @@
 ;; Yeah, this is a lisp-build-system build file for lisp-build-system
 ;; itself... bootstrappy!
 
+;; Sets the default language for targets that don't specify a language
+(language c++)
+
 (library
  libparser
  (include-directories inc)

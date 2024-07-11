@@ -181,7 +181,7 @@ auto lex(std::string_view& source) -> Token {
     return out;
 }
 
-auto parse(std::string_view source) -> BuildScenario {
+auto parse(std::string_view source, std::string language) -> BuildScenario {
     // The idea is this will parse the source into a list of actions to
     // perform (i.e. shell commands to run for targets and that sort of
     // thing).
@@ -250,7 +250,9 @@ auto parse(std::string_view source) -> BuildScenario {
             }
 
             // Register target in BuildScenario.
-            build_scenario.targets.push_back(Target::NamedTarget(t_kind, name));
+            build_scenario.targets.push_back(
+                Target::NamedTarget(t_kind, name, language)
+            );
 
             // Parse auto-target forms within body (elements past target name)
             // i.e. instead of (sources foo foo.c) it could be (executable foo
@@ -258,7 +260,8 @@ auto parse(std::string_view source) -> BuildScenario {
             auto target = build_scenario.target(name);
 
             IteratePastHelper<typeof token.elements, 2> it_helper{
-                token.elements};
+                token.elements  //
+            };
             for (const auto& subtoken : it_helper) {
                 if (not token_is_list(subtoken)) {
                     printf(
@@ -291,13 +294,14 @@ auto parse(std::string_view source) -> BuildScenario {
                     // Iterate all elements past operator position (first
                     // position).
                     IteratePastHelper<typeof subtoken.elements, 1> it_helper{
-                        subtoken.elements};
+                        subtoken.elements  //
+                    };
                     for (const auto& source : it_helper) {
                         // TODO: Handle (directory-contents)
                         if (not token_is_identifier(source)) {
                             printf(
-                                "ERROR: Sources must be an identifier (just a "
-                                "file path)\n"
+                                "ERROR: Sources must be an identifier "
+                                "(just a file path)\n"
                             );
                             exit(1);
                         }
@@ -314,12 +318,13 @@ auto parse(std::string_view source) -> BuildScenario {
                         exit(1);
                     }
                     IteratePastHelper<typeof subtoken.elements, 1> it_helper{
-                        subtoken.elements};
+                        subtoken.elements  //
+                    };
                     for (const auto& include_dir : it_helper) {
                         if (not token_is_identifier(include_dir)) {
                             printf(
-                                "ERROR: Sources must be an identifier (just a "
-                                "file path)\n"
+                                "ERROR: Include directories must be an "
+                                "identifier (just a file path)\n"
                             );
                             exit(1);
                         }
@@ -339,13 +344,11 @@ auto parse(std::string_view source) -> BuildScenario {
                     }
                     // Iterate all elements past operator position.
                     IteratePastHelper<typeof subtoken.elements, 1> it_helper{
-                        subtoken.elements};
+                        subtoken.elements  //
+                    };
                     for (const auto& flag : it_helper) {
                         if (not token_is_identifier(flag)) {
-                            printf(
-                                "ERROR: Sources must be an identifier (just a "
-                                "file path)\n"
-                            );
+                            printf("ERROR: Flags must be an identifier\n");
                             exit(1);
                         }
                         target->flags.push_back(flag.identifier);
@@ -362,17 +365,34 @@ auto parse(std::string_view source) -> BuildScenario {
                     }
                     // Iterate all elements past operator position.
                     IteratePastHelper<typeof subtoken.elements, 1> it_helper{
-                        subtoken.elements};
+                        subtoken.elements  //
+                    };
                     for (const auto& define : it_helper) {
                         if (not token_is_identifier(define)) {
-                            printf(
-                                "ERROR: Sources must be an identifier (just a "
-                                "file path)\n"
-                            );
+                            printf("ERROR: Defines must be an identifier\n");
                             exit(1);
                         }
                         target->defines.push_back(define.identifier);
                     }
+                } else if (identifier == "language") {
+                    if (target->kind != Target::Kind::EXECUTABLE
+                        and target->kind != Target::Kind::LIBRARY) {
+                        printf(
+                            "ERROR: %s is only applicable to executable and "
+                            "library targets",
+                            identifier.data()
+                        );
+                        exit(1);
+                    }
+                    if (subtoken.elements.size() != 2
+                        or not token_is_identifier(subtoken.elements.at(1))) {
+                        printf(
+                            "ERROR: language must have one identifier "
+                            "argument: the language"
+                        );
+                        exit(1);
+                    }
+                    target->language = subtoken.elements.at(1).identifier;
                 } else {
                     printf(
                         "ERROR: Unrecognized operator %s within target "
@@ -386,8 +406,33 @@ auto parse(std::string_view source) -> BuildScenario {
             continue;
         }
 
+        else if (identifier == "language") {
+            // Ensure second element is an identifier.
+            if (token.elements.size() != 2) {
+                printf("ERROR: Wrong number of arguments to 'language'\n");
+                exit(1);
+            }
+            if (not token_is_identifier(token.elements[1])) {
+                printf(
+                    "ERROR: Second element of 'language' must be an "
+                    "identifier\n"
+                );
+                exit(1);
+            }
+            auto lang = token.elements[1].identifier;
+            if (language.empty()) language = lang;
+            else
+                printf(
+                    "WARNING: Overriding (language %s) with given language "
+                    "%s\n",
+                    lang.data(),
+                    language.data()
+                );
+        }
+
         // TARGET RELATED
-        // "sources", "include-directories", "defines", "flags" for executables and libraries
+        // "sources", "include-directories", "defines", "flags" for
+        // executables and libraries
         else if (identifier == "sources" or identifier == "include-directories" or identifier == "flags" or identifier == "defines") {
             // Ensure second element is an identifier.
             if (token.elements.size() < 2
@@ -396,8 +441,8 @@ auto parse(std::string_view source) -> BuildScenario {
                 exit(1);
             }
             std::string name = token.elements[1].identifier;
-            // Ensure that identifier that refers to an existing target, and get
-            // a reference to that target so we can add a few details.
+            // Ensure that identifier that refers to an existing target, and
+            // get a reference to that target so we can add a few details.
             auto target = build_scenario.target(name);
             if (target == build_scenario.targets.end()) {
                 printf(
@@ -421,13 +466,14 @@ auto parse(std::string_view source) -> BuildScenario {
             if (identifier == "sources") {
                 // Begin iterating all elements past target name.
                 IteratePastHelper<typeof token.elements, 2> it_helper{
-                    token.elements};
+                    token.elements  //
+                };
                 for (const auto& source : it_helper) {
                     // TODO: Handle (directory-contents)
                     if (not token_is_identifier(source)) {
                         printf(
-                            "ERROR: Sources must be an identifier (just a file "
-                            "path)\n"
+                            "ERROR: Sources must be an identifier "
+                            "(just a file path)\n"
                         );
                         exit(1);
                     }
@@ -439,7 +485,8 @@ auto parse(std::string_view source) -> BuildScenario {
             else if (identifier == "include-directories") {
                 // Begin iterating all elements past target name.
                 IteratePastHelper<typeof token.elements, 2> it_helper{
-                    token.elements};
+                    token.elements  //
+                };
                 for (const auto& include_dir : it_helper) {
                     // TODO: Handle (directory-contents)
                     if (not token_is_identifier(include_dir)) {
@@ -457,7 +504,8 @@ auto parse(std::string_view source) -> BuildScenario {
             else if (identifier == "defines") {
                 // Begin iterating all elements past target name.
                 IteratePastHelper<typeof token.elements, 2> it_helper{
-                    token.elements};
+                    token.elements  //
+                };
                 for (const auto& define : it_helper) {
                     if (not token_is_identifier(define)) {
                         printf("ERROR: Defines must be identifiers\n");
@@ -470,7 +518,8 @@ auto parse(std::string_view source) -> BuildScenario {
             else if (identifier == "flags") {
                 // Begin iterating all elements past target name.
                 IteratePastHelper<typeof token.elements, 2> it_helper{
-                    token.elements};
+                    token.elements  //
+                };
                 for (const auto& flag : it_helper) {
                     if (not token_is_identifier(flag)) {
                         printf("ERROR: Flags must be identifiers\n");
@@ -502,8 +551,8 @@ auto parse(std::string_view source) -> BuildScenario {
                 exit(1);
             }
             std::string name = token.elements[1].identifier;
-            // Ensure that identifier that refers to an existing target, and get
-            // a reference to that target so we can add a few details.
+            // Ensure that identifier that refers to an existing target, and
+            // get a reference to that target so we can add a few details.
             auto target = build_scenario.target(name);
             if (target == build_scenario.targets.end()) {
                 printf(
@@ -526,9 +575,11 @@ auto parse(std::string_view source) -> BuildScenario {
                     exit(1);
                 }
                 requisite.text = token.elements[2].identifier;
-                // Begin iterating all elements past target name and command.
+                // Begin iterating all elements past target name and
+                // command.
                 IteratePastHelper<typeof token.elements, 3> it_helper{
-                    token.elements};
+                    token.elements  //
+                };
                 for (const auto& arg : it_helper) {
                     // TODO: Handle (directory-contents)
                     if (not token_is_identifier(arg)) {
@@ -591,6 +642,9 @@ auto parse(std::string_view source) -> BuildScenario {
             target->requisites.push_back(requisite);
 
             continue;
+        } else {
+            printf("ERROR: invalid form '%s'\n", identifier.data());
+            exit(1);
         }
     }
     // BuildScenario::Print(build_scenario);

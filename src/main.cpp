@@ -6,8 +6,11 @@
 #include <lbs/build_scenario.h>
 #include <lbs/compiler.h>
 #include <parser/parser.h>
-#include <tests/tests.h>
 #include <tocmake/tocmake.h>
+
+#ifdef LBS_TEST
+#    include <tests/tests.h>
+#endif  // LBS_TEST
 
 auto get_file_contents_or_exit(const std::string_view path) -> std::string {
     auto f = fopen(path.data(), "rb");
@@ -34,6 +37,7 @@ auto get_file_contents_or_exit(const std::string_view path) -> std::string {
 
 struct Options {
     std::vector<std::string> targets_to_build{};
+    std::string language{"c++"};
     bool dry_run{false};
     bool clean_intermediates{true};
     bool just_clean{false};
@@ -54,7 +58,7 @@ int main(int argc, const char** argv) {
 
             if (arg.substr(0, 2) == "-h" or arg.substr(0, 3) == "--h") {
                 // clang-format off
-                printf("USAGE: %s [FLAGS] [TARGETS...]\n", argv[0]);
+                printf("USAGE: %s [FLAGS] [OPTIONS] [TARGETS...]\n", argv[0]);
                 printf("FLAGS:\n");
                 printf("  -n, --dry-run :: Only print, don't \"do\" anything.\n");
                 printf("  --distclean :: Only delete build artifacts.\n");
@@ -62,6 +66,8 @@ int main(int argc, const char** argv) {
                     "build is completed.\n");
                 printf("  --cmake :: Best effort to generate a CMakeLists.txt "
                     "from the LISP build system description.\n");
+                printf("OPTIONS:\n");
+                printf("  -x <lang> :: If a build description doesn't specify a language explicitly, use this language (default c++).\n");
                 // clang-format on
             }
 
@@ -70,6 +76,16 @@ int main(int argc, const char** argv) {
             else if (arg == "--noclean") options.clean_intermediates = false;
             else if (arg == "--cmake") options.tocmake = true;
             else if (arg == "--verbose" or arg == "-v") options.verbose = true;
+            else if (arg == "-x") {
+                if (i + 1 >= argc) {
+                    printf(
+                        "ERROR: Option -x provided at end of command line, "
+                        "expected language"
+                    );
+                }
+                const std::string_view option{argv[++i]};
+                options.language = option;
+            }
 
             // NOTE: If you want a target that starts with a dash, you can
             // change these lines yourself :).
@@ -95,8 +111,11 @@ int main(int argc, const char** argv) {
         );
         return 1;
     }
+
+    const std::string default_language = options.language;
+
     std::string source = get_file_contents_or_exit(path);
-    auto build_scenario = parse(source);
+    auto build_scenario = parse(source, default_language);
 
     if (options.tocmake) {
         std::string cmake = tocmake(build_scenario);
@@ -104,16 +123,17 @@ int main(int argc, const char** argv) {
         exit(0);
     }
 
-    const std::string_view default_compiler = "cpp";
+    const std::string archive_template = "ar crs %o %i";
 
     build_scenario.compilers.push_back(Compiler{
-        "c", "cc -c %f %d %i -o %o", "ar crs %o %i", "cc %f %d %i -o %o"});
+        "c", "cc -c %f %d %i -o %o", archive_template, "cc %f %d %i -o %o"});
 
     build_scenario.compilers.push_back(Compiler{
-        "cpp", "c++ -c %f %d %i -o %o", "ar crs %o %i", "c++ %f %d %i -o %o"});
+        "c++", "c++ -c %f %d %i -o %o", archive_template, "c++ %f %d %i -o %o"}
+    );
 
     build_scenario.compilers.push_back(Compiler{
-        "lcc", "lcc %f %d %i -o %o", "ar crs %o %i", "cc %f %d %i -o %o"});
+        "lcc", "lcc %f %d %i -o %o", archive_template, "cc %f %d %i -o %o"});
 
     BuildScenario::BuildCommands build_commands{};
 
@@ -121,7 +141,7 @@ int main(int argc, const char** argv) {
     if (options.targets_to_build.size()) {
         for (const auto& target_to_build : options.targets_to_build)
             build_commands.push_back(BuildScenario::Commands(
-                build_scenario, target_to_build, default_compiler
+                build_scenario, target_to_build, default_language
             ));
     } else {
         // Attempt to find a single executable target, and build that by
@@ -143,14 +163,20 @@ int main(int argc, const char** argv) {
             );
             exit(1);
         }
-        // TODO: Get compiler from target, if specified. Otherwise use default.
+        // Get compiler from target, if specified. Otherwise use default.
         build_commands.push_back(BuildScenario::Commands(
-            build_scenario, single_executable_target->name, default_compiler
+            build_scenario,
+            single_executable_target->name,
+            single_executable_target->language.empty()
+                ? default_language
+                : single_executable_target->language
         ));
     }
 
     if (options.just_clean) {
         for (auto artifact : build_commands.artifacts) {
+            if (options.verbose)
+                printf("[REMOVE ARTIFACT]: %s\n", artifact.data());
             if (options.dry_run)
                 printf("[DRY]:[REMOVE ARTIFACT]: %s\n", artifact.data());
             else std::remove(artifact.data());
@@ -160,9 +186,8 @@ int main(int argc, const char** argv) {
 
     // Execute build commands.
     for (const auto& command : build_commands.commands) {
-        if (options.dry_run) {
-            printf("[DRY]:[RUN]: %s\n", command.data());
-        } else {
+        if (options.dry_run) printf("[DRY]:[RUN]: %s\n", command.data());
+        else {
             if (options.verbose) printf("[RUN]: %s\n", command.data());
             // THIS IS NOT A FIRE DRILL THIS IS THE REAL DEAL
             // Use system() from libc to run build commands.
@@ -170,7 +195,8 @@ int main(int argc, const char** argv) {
             if (rc) {
                 printf(
                     "[BUILD]:ERROR: command failed with status %d\n    %s\n",
-                    int(rc), command.data()
+                    int(rc),
+                    command.data()
                 );
                 break;
             }

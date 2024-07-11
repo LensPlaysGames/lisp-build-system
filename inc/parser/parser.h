@@ -10,6 +10,6 @@
 #include <lbs/build_scenario.h>
 #include <lbs/target.h>
 
-auto parse(std::string_view source) -> BuildScenario;
+auto parse(std::string_view source, std::string language) -> BuildScenario;
 
 #endif /* LBS_PARSER_H */

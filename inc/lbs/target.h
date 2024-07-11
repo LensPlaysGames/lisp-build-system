@@ -13,6 +13,7 @@ struct Target {
     } kind;
 
     const std::string name;
+    std::string language;
     std::vector<std::string> sources;
     std::vector<std::string> include_directories;
     std::vector<std::string> linked_libraries;
@@ -54,8 +55,11 @@ struct Target {
 
     Target() = delete;
 
-    static auto NamedTarget(Target::Kind kind, std::string name) -> Target {
-        return Target{kind, std::move(name), {}, {}, {}, {}, {}, {}};
+    static auto
+    NamedTarget(Target::Kind kind, std::string name, std::string language)
+        -> Target {
+        return Target{
+            kind, std::move(name), std::move(language), {}, {}, {}, {}, {}, {}};
     }
 
     static void Print(const Target& target) {

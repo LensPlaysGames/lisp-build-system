@@ -1,3 +1,16 @@
+* File Cache
+START [2024-07-11 Thu 05:04]
+FINAL ?
+
+Basically, KISS.
+
+1. collect all sources from all targets
+2. hash all source files (might be slow for large projects, in which case boo-hoo use cmake; simple optimisation could be only hash iff they don't differ in size, as c++ filesystem returns file size when iterating directory entries).
+3. if hash cache exists, use it to compare hashes and only build source files that have differing sizes or hashes (probably just by removing source file from target, lol).
+4. update hashes in hash cache, if necessary (at first, just rewrite the whole thing)
+
+And, we want all this to be able to be disabled, so that we retain the "simple" just-build-the-damn-thing nature of the program.
+
 * Cross Platform-ness
 START [2024-06-27 Thu 12:17]
 FINAL ?
